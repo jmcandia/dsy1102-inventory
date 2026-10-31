@@ -238,8 +238,7 @@ Puntos a tener en cuenta:
 
 ### 1. Creación del proyecto
 
-Para crear nuestra aplicación vamos a iniciar IntelliJ IDEA, y desde la pantalla de bienvenida vamos a seleccionar **New
-Project**.
+Para crear nuestra aplicación vamos a iniciar IntelliJ IDEA, y desde la pantalla de bienvenida vamos a seleccionar **New Project**.
 
 Luego, vamos a completar la información de nuestro proyecto:
 
@@ -254,7 +253,7 @@ Luego, vamos a completar la información de nuestro proyecto:
 
 Para continuar, presionamos **Next**.
 
-En la siguiente ventana podemos seleccionar las dependencias adicionales para nuestro proyecto. Por el momento, no vamos seleccionar nada, y vamos a presionar **Create**.
+En la siguiente ventana podemos seleccionar las dependencias adicionales para nuestro proyecto. Por el momento, no vamos a seleccionar nada, y vamos a presionar **Create**.
 
 IntelliJ generará la estructura inicial de nuestro proyecto:
 
@@ -293,7 +292,7 @@ En nuestra aplicación no vamos a ocupar todos los archivos generados por Intell
 1. **Renombrar `HelloApplication.java`:** En el explorador de archivos del proyecto, selecciona el archivo `HelloApplication`, hazle clic con el botón derecho y luego, en **Rename**. En el cuadro de diálogo, escribe `InventoryApplication` y presiona **Refactor**.
 2. **Eliminar `HelloController.java` y `hello-view.fxml`:** Selecciona independientemente cada archivo, y presiona el botón *Suprimir* o haz clic con el botón derecho y, luego, en **Delete**. En el siguiente cuadro de diálogo, presiona **Refactor**. Como estos archivos aún tienen dependencias en el proyecto, IntelliJ te va a preguntar si estás seguro, mostrando los conflictos existentes; como no los vamos a usar, presiona **Refactor anyway**.
 
-También vamos a crear los *packages* necesarios para implementar el patrón **MVC**. Primero, en la ruta `src/main/java/cl/duoc/inventory/` haremos clic con el botón derecho, seleccionaremos **New** → **New Package** y en el cuadro de diálogo, le daremos el nombre `cl.duoc.inventory.controller`. Vamos a repetir la acción para crear dos *packages* adicionales, con los nombres `cl.duoc.inventory.model`, `cl.duoc.inventory.repository` y `cl.duoc.inventory.service`.
+También vamos a crear los *packages* necesarios para implementar el patrón **MVC**. Primero, en la ruta `src/main/java/cl/duoc/inventory/` haremos clic con el botón derecho, seleccionaremos **New** → **New Package** y en el cuadro de diálogo, le daremos el nombre `cl.duoc.inventory.controller`. Vamos a repetir la acción para crear tres *packages* adicionales, con los nombres `cl.duoc.inventory.model`, `cl.duoc.inventory.repository` y `cl.duoc.inventory.service`.
 
 Como segundo punto, vamos a hacer clic derecho en la ruta `src/main/resources/cl/duoc/inventory/`, seleccionaremos **New** → **New Directory**, y crearemos las carpetas `view` y `css`.
 
@@ -316,7 +315,7 @@ dsy1102-inventory/
 │       └── resources/
 │           └── cl/duoc/inventory/
 │               ├── css/                       # Hojas de estilo CSS
-│               └── view/                      # Vistas definidas en FXM
+│               └── view/                      # Vistas definidas en FXML
 ├── mvnw
 ├── mvnw.cmd
 └── pom.xml
@@ -538,7 +537,7 @@ Recorramos la vista de arriba hacia abajo:
 
 > **Propiedades adjuntas:** `HBox.hgrow` y `VBox.vgrow` usan la notación `Clase.propiedad`. Se llaman *propiedades adjuntas* (*attached properties*) porque las define el contenedor padre y se aplican al hijo. Aquí, `VBox.vgrow="ALWAYS"` le indica a la tabla que use todo el alto disponible dentro del `VBox`.
 
-Con nuestra vista creada, debemos modificar el archivo `src/main/java/cl/duoc/inventory/InventoryApplication` para corregir la escena que se carga en la función `FXMLLoader(...)`. También, vamos a cambiar el título al `Stage` por `"DSY1102 Inventario"`, y el tamaño de la ventana principal al momento de crear la escena con `new Scene(...)`:
+Con nuestra vista creada, debemos modificar el archivo `src/main/java/cl/duoc/inventory/InventoryApplication.java` para corregir la escena que se carga en la función `FXMLLoader(...)`. También, vamos a cambiar el título al `Stage` por `"DSY1102 Inventario"`, y el tamaño de la ventana principal al momento de crear la escena con `new Scene(...)`:
 
 ```java
 package cl.duoc.inventory;
@@ -636,6 +635,596 @@ Revisemos el controlador por partes:
 - **`handleNewProductClick()`:** es el método que enlazamos desde el FXML con `#handleNewProductClick`. Por ahora está vacío, y lo completaremos en el siguiente paso.
 
 Con esto ya puedes ejecutar la aplicación con `.\mvnw.cmd clean javafx:run` y ver la ventana con los dos productos de ejemplo.
+
+### 7. Crear el servicio `ProductService`
+
+Hasta el momento, nuestra aplicación solo lee los productos que se encuentran en la variable `products` del controlador `InventoryController`. Pero, ¿cómo pueden estar disponibles todos los productos en toda la aplicación? La respuesta es un **servicio**.
+
+En Java, un servicio corresponde a una clase que concentra toda la lógica de negocio. Es decir, en lugar de poner cálculos, validaciones complejas o reglas de la empresa dentro de un botón, un formulario o un controlador web, todo eso vive dentro de la clase de servicio.
+
+En nuestro caso, el servicio que vamos a crear nos permitirá encapsular la lógica para mostrar los productos, agregar nuevos y eliminar los ya existentes. De esta forma, la lógica de negocio no depende de ningún controlador.
+
+Para implementar un servicio en nuestra aplicación, vamos a crear la clase `ProductService` en la ruta `src/main/java/cl/duoc/inventory/service/`.
+
+```java
+package cl.duoc.inventory.service;
+
+import cl.duoc.inventory.model.Product;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+public class ProductService {
+    private final ObservableList<Product> products =
+            FXCollections.observableArrayList();
+
+    private ProductService() {
+        products.addAll(
+                new Product(
+                        "Teclado mecánico",
+                        "Teclado USB",
+                        "Periféricos",
+                        45990.0,
+                        15
+                ),
+                new Product(
+                        "Monitor 24 pulgadas",
+                        "Monitor Full HD",
+                        "Electrónica",
+                        129990.0,
+                        8
+                )
+        );
+    }
+
+    public static ProductService getInstance() {
+        return InstanceHolder.INSTANCE;
+    }
+
+    public ObservableList<Product> getProducts() {
+        return products;
+    }
+
+    public void addProduct(Product product) {
+        products.add(product);
+    }
+
+    public boolean removeProduct(Product product) {
+        return products.remove(product);
+    }
+
+    private static class InstanceHolder {
+        private static final ProductService INSTANCE =
+                new ProductService();
+    }
+}
+```
+
+Esta clase aplica el patrón de diseño **Singleton**, que garantiza que exista **una única instancia** de `ProductService` en toda la aplicación. Esto es justamente lo que necesitamos: si cada controlador creara su propio servicio, cada uno tendría su propia lista de productos y no verían los cambios del otro. Veamos cómo se logra:
+
+- **Constructor `private`:** nadie fuera de la clase puede escribir `new ProductService()`. Aquí también cargamos los dos productos de ejemplo que antes estaban en el controlador.
+- **`getInstance()`:** es el único punto de acceso al servicio. Siempre retorna la misma instancia, que vive dentro de `InstanceHolder`.
+- **`InstanceHolder`:** es una clase interna estática. Java no la carga en memoria hasta que alguien la usa por primera vez, es decir, cuando se llama a `getInstance()`. En ese momento se crea `INSTANCE`, y la JVM garantiza que esa creación es segura incluso si varios hilos la solicitan al mismo tiempo, sin necesidad de usar `synchronized`.
+- **`products`:** es la lista observable que contiene los datos. Es `private` y `final`, de modo que solo se modifica a través de los métodos del servicio.
+- **`getProducts()`:** retorna la propia lista (y no una copia) porque la tabla necesita *observarla* para actualizarse sola.
+- **`addProduct(...)` y `removeProduct(...)`:** agregan y quitan productos de la lista. `remove` retorna `true` si el producto existía y `false` en caso contrario.
+
+> **Nota:** el servicio no tiene un método para editar. Un producto editado sigue siendo el mismo objeto que ya está en la lista, por lo que basta con modificarlo mediante sus *setters*. Lo veremos en el paso 10.
+
+### 8. Modificar `InventoryController`
+
+Ahora que tenemos nuestro servicio, vamos a modificar el controlador `InventoryController` para agregar el uso del servicio y eliminar las instrucciones obsoletas.
+
+Vamos a iniciar agregando la importación del servicio `ProductService`:
+
+```java
+import cl.duoc.inventory.service.ProductService;
+```
+
+Luego, debemos modificar el método `initialize()` para cambiar la forma en que la tabla `tblProducts` obtiene los productos:
+
+```java
+tblProducts.setItems(ProductService.getInstance().getProducts());
+```
+
+`getInstance()` entrega la instancia única del servicio y `getProducts()` su lista observable. Con esto, la tabla muestra los datos del servicio y no los de una lista propia del controlador, por lo que cualquier cambio que se haga en el servicio se reflejará en pantalla.
+
+Por último, vamos a quitar la declaración de la variable `products`, borrando estas líneas:
+
+```java
+private final ObservableList<Product> products = FXCollections.observableArrayList(
+        new Product(
+                "Teclado mecánico",
+                "Teclado USB", "Periféricos", 45990.0, 15
+        ),
+        new Product(
+                "Monitor 24 pulgadas",
+                "Monitor Full HD", "Electrónica", 129990.0, 8
+        )
+);
+```
+
+Al borrar `products`, las importaciones de `FXCollections` y `ObservableList` quedan sin uso (IntelliJ las muestra atenuadas), por lo que también debemos eliminarlas.
+
+Nuestro controlador `InventoryController` ahora debe lucir así:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.service.ProductService;
+import javafx.fxml.FXML;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+
+public class InventoryController {
+    @FXML
+    private TableView<Product> tblProducts;
+    @FXML
+    private TableColumn<Product, String> colName;
+    @FXML
+    private TableColumn<Product, String> colCategory;
+    @FXML
+    private TableColumn<Product, Double> colPrice;
+    @FXML
+    private TableColumn<Product, Integer> colQuantity;
+
+    @FXML
+    protected void initialize() {
+        colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+        colCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
+        colPrice.setCellValueFactory(new PropertyValueFactory<>("price"));
+        colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+
+        tblProducts.setItems(ProductService.getInstance().getProducts());
+    }
+
+    @FXML
+    protected void handleNewProductClick() {
+        // Próximo paso: abrir el formulario de producto.
+    }
+}
+```
+
+Fíjate en que el controlador ya no almacena datos: solo conecta la vista con el servicio. Esta es la separación de responsabilidades que busca el patrón MVC, donde cada clase tiene un único motivo para cambiar.
+
+### 9. Crear la vista `product-view.fxml`
+
+Ahora que tenemos el servicio funcionando, vamos a crear el formulario para crear nuevos productos y editar o eliminar los existentes. Para ello, vamos a crear en la ruta `src/main/resources/cl/duoc/inventory/view/` un nuevo archivo FXML llamado `product-view.fxml`, con el siguiente código:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            xmlns="http://javafx.com/javafx"
+            fx:controller="cl.duoc.inventory.controller.ProductController"
+            prefHeight="400.0" prefWidth="600.0">
+    <top>
+        <VBox spacing="5.0">
+            <padding>
+                <Insets top="20.0" right="24.0"
+                        bottom="15.0" left="24.0"/>
+            </padding>
+            <Label fx:id="lblTitle"
+                   text="Nuevo producto"/>
+            <Label text="Ingresa la información del producto"/>
+        </VBox>
+    </top>
+    <center>
+        <GridPane hgap="12.0" vgap="12.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="20.0" left="24.0"/>
+            </padding>
+            <columnConstraints>
+                <ColumnConstraints minWidth="100.0"/>
+                <ColumnConstraints hgrow="ALWAYS"/>
+            </columnConstraints>
+            <Label text="Nombre:"
+                   GridPane.rowIndex="0"
+                   GridPane.columnIndex="0"/>
+            <TextField fx:id="txtName"
+                       promptText="Nombre del producto"
+                       GridPane.rowIndex="0"
+                       GridPane.columnIndex="1"/>
+            <Label text="Descripción:"
+                   GridPane.rowIndex="1"
+                   GridPane.columnIndex="0"/>
+            <TextArea fx:id="txtDescription"
+                      promptText="Descripción del producto"
+                      prefRowCount="3"
+                      wrapText="true"
+                      GridPane.rowIndex="1"
+                      GridPane.columnIndex="1"/>
+            <Label text="Categoría:"
+                   GridPane.rowIndex="2"
+                   GridPane.columnIndex="0"/>
+            <ComboBox fx:id="cmbCategory"
+                      promptText="Selecciona una categoría"
+                      maxWidth="Infinity"
+                      GridPane.rowIndex="2"
+                      GridPane.columnIndex="1"/>
+            <Label text="Precio:"
+                   GridPane.rowIndex="3"
+                   GridPane.columnIndex="0"/>
+            <TextField fx:id="txtPrice"
+                       promptText="Ej. 45990"
+                       GridPane.rowIndex="3"
+                       GridPane.columnIndex="1"/>
+            <Label text="Cantidad:"
+                   GridPane.rowIndex="4"
+                   GridPane.columnIndex="0"/>
+            <TextField fx:id="txtQuantity"
+                       promptText="Ej. 15"
+                       GridPane.rowIndex="4"
+                       GridPane.columnIndex="1"/>
+        </GridPane>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="20.0" left="24.0"/>
+            </padding>
+            <Button fx:id="btnDelete"
+                    text="Eliminar"
+                    onAction="#handleDeleteClick"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Cancelar"
+                    onAction="#handleCancelClick"/>
+            <Button text="Guardar"
+                    onAction="#handleSaveClick"/>
+        </HBox>
+    </bottom>
+</BorderPane>
+```
+
+Esta vista usa de nuevo un `BorderPane`, ahora con tres zonas: `top` para el encabezado, `center` para el formulario y `bottom` para los botones. Veamos sus partes más importantes:
+
+- **`lblTitle`:** el título tiene un `fx:id` porque el controlador cambiará su texto a "Editar producto" cuando el formulario se abra con un producto existente. De este modo, **la misma vista sirve para crear y para editar**.
+- **`GridPane`:** organiza los controles en una cuadrícula. Cada hijo indica su posición con las propiedades adjuntas `GridPane.rowIndex` y `GridPane.columnIndex`, igual que `HBox.hgrow` en el paso 5. La primera columna contiene las etiquetas y la segunda, los campos. En `columnConstraints`, la primera columna tiene un ancho mínimo de `100` y la segunda usa `hgrow="ALWAYS"` para ocupar todo el espacio restante.
+- **`promptText`:** es el texto de ayuda que aparece en gris dentro de un campo vacío y desaparece al escribir.
+- **`TextArea`:** `prefRowCount="3"` define cuántas filas de texto se ven a la vez y `wrapText="true"` hace que el texto salte de línea al llegar al borde, en lugar de crecer hacia la derecha.
+- **`ComboBox`:** `maxWidth="Infinity"` le permite estirarse hasta ocupar toda la columna; por defecto, solo tomaría el ancho necesario. Las categorías que muestra se cargarán desde el controlador.
+- **Botones:** `Eliminar` queda a la izquierda, y `Region` con `hgrow="ALWAYS"` empuja `Cancelar` y `Guardar` hacia la derecha. El botón de eliminar tiene un `fx:id` porque el controlador lo ocultará cuando se esté creando un producto nuevo.
+
+Cada atributo `onAction` (`#handleDeleteClick`, `#handleCancelClick` y `#handleSaveClick`) debe corresponder a un método del controlador `ProductController`, que crearemos a continuación. Si falta alguno, `FXMLLoader` fallará al cargar la vista.
+
+### 10. Crear el controlador `ProductController`
+
+Para que el formulario de productos pueda funcionar correctamente, es necesario crear el controlador que le dará funcionalidad. Para conseguirlo, vamos a crear la clase `ProductController` en la ruta `src/main/java/cl/duoc/inventory/controller/`, con el siguiente código:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.service.ProductService;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+
+import java.util.Optional;
+
+public class ProductController {
+    @FXML
+    private Label lblTitle;
+
+    @FXML
+    private TextField txtName;
+
+    @FXML
+    private TextArea txtDescription;
+
+    @FXML
+    private ComboBox<String> cmbCategory;
+
+    @FXML
+    private TextField txtPrice;
+
+    @FXML
+    private TextField txtQuantity;
+
+    @FXML
+    private Button btnDelete;
+    private Product product;
+
+    @FXML
+    protected void initialize() {
+        cmbCategory.getItems().addAll("Periféricos", "Electrónica", "Accesorios");
+
+        btnDelete.setVisible(false);
+        btnDelete.setManaged(false);
+    }
+
+    @FXML
+    protected void handleSaveClick() {
+        if (!validateForm()) {
+            return;
+        }
+
+        String name = txtName.getText().trim();
+        String description = txtDescription.getText().trim();
+        String category = cmbCategory.getValue();
+        double price = Double.parseDouble(txtPrice.getText());
+        int quantity = Integer.parseInt(txtQuantity.getText());
+
+        if (product == null) {
+            Product newProduct = new Product(
+                    name, description, category, price, quantity
+            );
+            ProductService.getInstance().addProduct(newProduct);
+        } else {
+            product.setName(name);
+            product.setDescription(description);
+            product.setCategory(category);
+            product.setPrice(price);
+            product.setQuantity(quantity);
+        }
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Producto guardado");
+        alert.setHeaderText("Operación exitosa");
+        alert.setContentText("El producto se guardó correctamente.");
+        alert.showAndWait();
+
+        txtName.getScene().getWindow().hide();
+    }
+
+    @FXML
+    protected void handleCancelClick() {
+        txtName.getScene().getWindow().hide();
+    }
+
+    @FXML
+    protected void handleDeleteClick() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Eliminar producto");
+        alert.setHeaderText("¿Estás seguro de eliminar este producto?");
+        alert.setContentText(
+                "Producto: " + product.getName()
+                        + "\nCódigo: " + product.getId()
+        );
+
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent()
+                && result.get() == ButtonType.OK) {
+
+            ProductService.getInstance().removeProduct(product);
+
+            Alert confirmation = new Alert(Alert.AlertType.INFORMATION);
+            confirmation.setTitle("Producto eliminado");
+            confirmation.setHeaderText("Operación exitosa");
+            confirmation.setContentText(
+                    "El producto se eliminó correctamente."
+            );
+
+            confirmation.showAndWait();
+
+            txtName.getScene().getWindow().hide();
+        }
+    }
+
+    public void setProduct(Product product) {
+        this.product = product;
+
+        lblTitle.setText("Editar producto");
+
+        txtName.setText(product.getName());
+        txtDescription.setText(product.getDescription());
+        cmbCategory.setValue(product.getCategory());
+        txtPrice.setText(String.valueOf(product.getPrice()));
+        txtQuantity.setText(String.valueOf(product.getQuantity()));
+
+        btnDelete.setVisible(true);
+        btnDelete.setManaged(true);
+    }
+
+    private boolean validateForm() {
+        if (txtName.getText().isBlank()
+                || cmbCategory.getValue() == null
+                || txtPrice.getText().isBlank()
+                || txtQuantity.getText().isBlank()) {
+
+            return false;
+        }
+
+        try {
+            double price = Double.parseDouble(txtPrice.getText());
+            int quantity = Integer.parseInt(txtQuantity.getText());
+
+            return price >= 0 && quantity >= 0;
+
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+}
+```
+
+Este controlador tiene más lógica que los anteriores, así que lo revisaremos por partes:
+
+- **El campo `product`:** es la clave del diseño. Si es `null`, el formulario está en **modo creación**; si contiene un producto, está en **modo edición**. Casi todos los métodos preguntan por este valor para decidir qué hacer.
+- **`initialize()`:** carga las categorías en el `ComboBox` (por ahora, una lista fija) y oculta el botón `Eliminar`, que no tiene sentido al crear un producto. Se necesitan dos llamadas: `setVisible(false)` lo hace invisible, pero seguiría ocupando espacio en la fila; `setManaged(false)` hace que el contenedor lo ignore al distribuir sus hijos.
+- **`handleSaveClick()`:** primero valida el formulario y, si no es válido, termina con `return`. Luego lee los valores y los convierte: `trim()` elimina espacios sobrantes, y `Double.parseDouble` e `Integer.parseInt` transforman el texto en números, algo seguro en este punto porque ya fueron validados. Después, según el modo:
+  - **Creación:** se instancia un nuevo `Product` y se agrega al servicio con `addProduct(...)`.
+  - **Edición:** se modifica el mismo objeto con sus *setters*. No hace falta llamar al servicio, porque ese objeto ya está en su lista.
+- **`Alert` y `showAndWait()`:** `Alert` es un diálogo predefinido; el tipo (`INFORMATION`, `CONFIRMATION`, etc.) define su ícono y sus botones. `showAndWait()` lo muestra y **detiene la ejecución** hasta que el usuario lo cierre.
+- **`txtName.getScene().getWindow().hide()`:** cierra el formulario. Cualquier control sabe a qué `Scene` pertenece (por el *Scene Graph*), y la escena sabe en qué ventana está; de ahí llegamos al `Stage` y lo ocultamos. Usamos `txtName`, pero habría funcionado con cualquier otro control de la vista.
+- **`handleCancelClick()`:** cierra la ventana sin guardar nada.
+- **`handleDeleteClick()`:** muestra una alerta de confirmación. `showAndWait()` retorna un `Optional<ButtonType>` porque el usuario podría cerrar el diálogo sin presionar ningún botón; por eso se verifica `isPresent()` y que el botón sea `ButtonType.OK` antes de eliminar el producto con `removeProduct(...)`.
+- **`setProduct(Product product)`:** no es un manejador de eventos, sino un método público que el controlador principal llamará para abrir el formulario en modo edición. Guarda el producto, cambia el título, rellena los campos y muestra el botón `Eliminar`. No podemos recibir el producto en `initialize()`, porque este se ejecuta durante la carga de la vista, antes de que quien la abre tenga la oportunidad de entregarlo.
+- **`validateForm()`:** comprueba que nombre, categoría, precio y cantidad no estén vacíos (la descripción es opcional) y que el precio y la cantidad sean números no negativos. Si `parseDouble` o `parseInt` reciben un texto que no es numérico, lanzan `NumberFormatException`, que capturamos para retornar `false`. Por ahora, cuando la validación falla no se muestra ningún mensaje: simplemente no se guarda el producto.
+
+### 11. Integrar la navegación a la vista `product-view.fxml`
+
+En este momento, tenemos la vista principal y el formulario de productos, pero aún no se comunican entre sí. Para poder hacerlo, vamos a implementar la navegación entre ambas vistas.
+
+Lo primero que debemos hacer es crear la función `openProductView(Product product)` en el controlador `InventoryController`:
+
+```java
+private void openProductView(Product product) {
+    try {
+        FXMLLoader loader = new FXMLLoader(
+                getClass().getResource(
+                        "/cl/duoc/inventory/view/product-view.fxml"
+                )
+        );
+        Parent root = loader.load();
+
+        ProductController controller = loader.getController();
+
+        if (product != null) {
+            controller.setProduct(product);
+        }
+
+        Stage stage = new Stage();
+        stage.setTitle(
+                product == null ? "Nuevo producto" : "Editar producto"
+        );
+        stage.setScene(new Scene(root));
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.showAndWait();
+        tblProducts.refresh();
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+Esta función permite mostrar la vista para crear o editar un producto. El parámetro `product` indica en qué modo se abre: `null` significa crear y, si trae un producto, significa editar. Veamos cómo funciona:
+
+- **`FXMLLoader` como objeto:** en el paso 5 pasamos el resultado de `load()` directo a la `Scene`. Aquí guardamos el `loader` en una variable porque lo necesitamos después para llamar a `getController()`, que entrega el `ProductController` que `FXMLLoader` creó. Gracias a esto podemos pasarle datos al formulario con `setProduct(...)`.
+- **La ruta empieza con `/`:** una barra inicial indica que la ruta se calcula desde la raíz de los recursos, y no desde el paquete de la clase como en el paso 5.
+- **`new Stage()`:** crea una **segunda ventana** para el formulario, ya que cada `Stage` muestra una sola `Scene`. Su título cambia según el modo, usando el operador ternario `condición ? valorSiVerdadero : valorSiFalso`.
+- **`initModality(Modality.APPLICATION_MODAL)`:** vuelve la ventana *modal*, es decir, bloquea la interacción con el resto de la aplicación hasta que se cierre.
+- **`showAndWait()`:** a diferencia de `show()`, muestra la ventana y **pausa este método** hasta que se cierre. Por eso la instrucción siguiente, `tblProducts.refresh()`, solo se ejecuta cuando el usuario termina con el formulario.
+- **`tblProducts.refresh()`:** agregar o eliminar un producto actualiza la tabla automáticamente porque la lista es observable. Sin embargo, modificar los atributos de un `Product` existente no genera ningún aviso, ya que usa atributos simples y no propiedades observables. Con `refresh()` le pedimos a la tabla que vuelva a leer los datos.
+- **`catch (IOException e)`:** se ejecuta si `load()` no puede leer el archivo FXML. Por ahora solo imprimimos el error en consola.
+
+El siguiente paso es modificar el método `handleNewProductClick()` que se encuentra en el mismo controlador:
+
+```java
+@FXML
+protected void handleNewProductClick() {
+    openProductView(null);
+}
+```
+
+Al pasar `null`, el formulario se abre vacío y en modo creación. Este método responde tanto al botón "Nuevo producto" como a la opción "Nuevo" del menú, ya que ambos lo referencian en el FXML.
+
+Por último, debemos modificar el método `initialize()` para integrar el evento que manejará el doble clic sobre un producto de la tabla y lo enviará al formulario:
+
+```java
+tblProducts.setRowFactory(tableView -> {
+    TableRow<Product> row = new TableRow<>();
+    row.setOnMouseClicked(event -> {
+        if (event.getClickCount() == 2 && !row.isEmpty()) {
+            Product selectedProduct = row.getItem();
+            openProductView(selectedProduct);
+        }
+    });
+    return row;
+});
+```
+
+Por defecto, `TableView` crea sus filas automáticamente. Con `setRowFactory(...)` le entregamos una función que construye cada fila (`TableRow`), lo que nos permite personalizarla. En este caso le registramos un manejador de clics, con la misma técnica de lambdas vista en la sección de eventos:
+
+- `event.getClickCount() == 2` detecta el **doble clic**.
+- `!row.isEmpty()` evita abrir el formulario al hacer doble clic en las filas vacías, que la tabla dibuja para completar su altura.
+- `row.getItem()` retorna el `Product` que muestra esa fila, el cual enviamos a `openProductView(...)`.
+
+Con todas esas modificaciones, nuestro controlador debe lucir así. Fíjate en que también se agregaron nuevas importaciones (`FXMLLoader`, `Parent`, `Scene`, `TableRow`, `Modality`, `Stage` e `IOException`), necesarias para los métodos nuevos:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.service.ProductService;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+
+import java.io.IOException;
+
+public class InventoryController {
+    @FXML
+    private TableView<Product> tblProducts;
+    @FXML
+    private TableColumn<Product, String> colName;
+    @FXML
+    private TableColumn<Product, String> colCategory;
+    @FXML
+    private TableColumn<Product, Double> colPrice;
+    @FXML
+    private TableColumn<Product, Integer> colQuantity;
+
+    @FXML
+    protected void initialize() {
+        colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+        colCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
+        colPrice.setCellValueFactory(new PropertyValueFactory<>("price"));
+        colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+
+        tblProducts.setItems(ProductService.getInstance().getProducts());
+
+        tblProducts.setRowFactory(tableView -> {
+            TableRow<Product> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    Product selectedProduct = row.getItem();
+                    openProductView(selectedProduct);
+                }
+            });
+            return row;
+        });
+    }
+
+    @FXML
+    protected void handleNewProductClick() {
+        openProductView(null);
+    }
+
+    private void openProductView(Product product) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource(
+                            "/cl/duoc/inventory/view/product-view.fxml"
+                    )
+            );
+            Parent root = loader.load();
+
+            ProductController controller = loader.getController();
+
+            if (product != null) {
+                controller.setProduct(product);
+            }
+
+            Stage stage = new Stage();
+            stage.setTitle(
+                    product == null ? "Nuevo producto" : "Editar producto"
+            );
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
+            tblProducts.refresh();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+Ahora ya puedes ejecutar la aplicación con `.\mvnw.cmd clean javafx:run`. Podrás ver los dos productos de ejemplo, crear nuevos con el botón **Nuevo producto**, y editar o eliminar uno existente haciendo doble clic sobre su fila.
 
 ---
 

@@ -1,24 +1,21 @@
 package cl.duoc.inventory.controller;
 
 import cl.duoc.inventory.model.Product;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import cl.duoc.inventory.service.ProductService;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+
+import java.io.IOException;
 
 public class InventoryController {
-    private final ObservableList<Product> products = FXCollections.observableArrayList(
-            new Product(
-                    "Teclado mecánico",
-                    "Teclado USB", "Periféricos", 45990.0, 15
-            ),
-            new Product(
-                    "Monitor 24 pulgadas",
-                    "Monitor Full HD", "Electrónica", 129990.0, 8
-            )
-    );
     @FXML
     private TableView<Product> tblProducts;
     @FXML
@@ -37,11 +34,50 @@ public class InventoryController {
         colPrice.setCellValueFactory(new PropertyValueFactory<>("price"));
         colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
 
-        tblProducts.setItems(products);
+        tblProducts.setItems(ProductService.getInstance().getProducts());
+
+        tblProducts.setRowFactory(tableView -> {
+            TableRow<Product> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    Product selectedProduct = row.getItem();
+                    openProductView(selectedProduct);
+                }
+            });
+            return row;
+        });
     }
 
     @FXML
     protected void handleNewProductClick() {
-        // Próximo paso: abrir el formulario de producto.
+        openProductView(null);
+    }
+
+    private void openProductView(Product product) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource(
+                            "/cl/duoc/inventory/view/product-view.fxml"
+                    )
+            );
+            Parent root = loader.load();
+
+            ProductController controller = loader.getController();
+
+            if (product != null) {
+                controller.setProduct(product);
+            }
+
+            Stage stage = new Stage();
+            stage.setTitle(
+                    product == null ? "Nuevo producto" : "Editar producto"
+            );
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
+            tblProducts.refresh();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
