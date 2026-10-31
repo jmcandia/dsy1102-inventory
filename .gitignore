@@ -38,6 +38,9 @@ build/
 ### Mac OS ###
 .DS_Store
 
+### Datos de la aplicación (JSON)
+data/
+
 ### Claude
 CLAUDE.md
 .claude/*

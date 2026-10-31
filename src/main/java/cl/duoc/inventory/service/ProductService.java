@@ -1,30 +1,17 @@
 package cl.duoc.inventory.service;
 
 import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.repository.ProductRepository;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 public class ProductService {
+    private final ProductRepository repository = new ProductRepository();
     private final ObservableList<Product> products =
             FXCollections.observableArrayList();
 
     private ProductService() {
-        products.addAll(
-                new Product(
-                        "Teclado mecánico",
-                        "Teclado USB",
-                        "Periféricos",
-                        45990.0,
-                        15
-                ),
-                new Product(
-                        "Monitor 24 pulgadas",
-                        "Monitor Full HD",
-                        "Electrónica",
-                        129990.0,
-                        8
-                )
-        );
+        products.addAll(repository.findAll());
     }
 
     public static ProductService getInstance() {
@@ -37,10 +24,19 @@ public class ProductService {
 
     public void addProduct(Product product) {
         products.add(product);
+        saveProducts();
     }
 
     public boolean removeProduct(Product product) {
-        return products.remove(product);
+        boolean removed = products.remove(product);
+        if (removed) {
+            saveProducts();
+        }
+        return removed;
+    }
+
+    public void saveProducts() {
+        repository.save(products);
     }
 
     private static class InstanceHolder {

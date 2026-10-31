@@ -1398,6 +1398,226 @@ Los colores comunican el significado de cada acción: `btn-danger` (rojo) para e
 
 Ahora ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. La tabla, los botones y el formulario deberían mostrar el nuevo estilo.
 
+### 13. Persistencia de datos con `Gson`
+
+Hasta ahora, los productos viven solo en la memoria de la aplicación: si agregas, editas o eliminas un producto y cierras la ventana, al abrirla de nuevo todo vuelve al estado inicial. Para que el inventario sobreviva entre ejecuciones, debemos **persistir** los datos, es decir, guardarlos en un archivo y leerlos al iniciar.
+
+Guardaremos los productos en formato **JSON**, un texto simple y legible que representa objetos y listas. Por ejemplo, un producto se ve así:
+
+```json
+{
+  "id": "7bf0831b-608d-4dd4-af4c-852cbe162280",
+  "name": "Teclado mecánico",
+  "description": "Teclado USB",
+  "category": "Periféricos",
+  "price": 45990.0,
+  "quantity": 15
+}
+```
+
+Para convertir nuestros objetos `Product` en JSON (*serializar*) y el JSON de vuelta en objetos (*deserializar*), usaremos [Gson](https://github.com/google/gson), una biblioteca de Google.
+
+#### Agregar la dependencia
+
+Copia y pega el siguiente código en la sección `dependencies` del archivo `pom.xml`, y recarga el proyecto Maven:
+
+```xml
+<dependency>
+    <groupId>com.google.code.gson</groupId>
+    <artifactId>gson</artifactId>
+    <version>2.11.0</version>
+</dependency>
+```
+
+Luego, modifica `src/main/java/module-info.java` para declarar el módulo y permitir que Gson acceda a la clase `Product`:
+
+```java
+requires com.google.gson;
+
+opens cl.duoc.inventory.model to javafx.base, com.google.gson;
+```
+
+Gson lee y escribe los atributos de `Product` mediante *reflexión*, igual que lo hace JavaFX con `PropertyValueFactory`. Por eso el paquete `model` debe estar abierto también a `com.google.gson`. Fíjate en que `opens` acepta varios módulos separados por comas.
+
+#### Crear el repositorio `ProductRepository`
+
+Hasta ahora, `ProductService` concentraba la lógica de negocio. Si además le agregáramos el código para leer y escribir archivos, tendría dos responsabilidades distintas. Por eso separamos el acceso al almacenamiento en una nueva capa: el **repositorio**, que solo sabe *cómo* guardar y recuperar datos, y no qué reglas de negocio aplican. Si algún día los datos se guardaran en una base de datos, solo cambiaría esta clase.
+
+Crea la clase `ProductRepository` en el paquete `cl.duoc.inventory.repository` (que creaste en el paso 2), en la ruta `src/main/java/cl/duoc/inventory/repository/`:
+
+```java
+package cl.duoc.inventory.repository;
+
+import cl.duoc.inventory.model.Product;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ProductRepository {
+    private static final Type PRODUCT_LIST_TYPE =
+            new TypeToken<List<Product>>() {
+            }.getType();
+
+    private final Path file;
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
+
+    public ProductRepository() {
+        this(Path.of("data", "products.json"));
+    }
+
+    public ProductRepository(Path file) {
+        this.file = file;
+    }
+
+    public boolean exists() {
+        return Files.exists(file);
+    }
+
+    public List<Product> findAll() {
+        if (!exists()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            String json = Files.readString(file, StandardCharsets.UTF_8);
+            List<Product> products = gson.fromJson(json, PRODUCT_LIST_TYPE);
+            return products != null ? products : new ArrayList<>();
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo leer el archivo " + file, e
+            );
+        }
+    }
+
+    public void save(List<Product> products) {
+        try {
+            Files.createDirectories(file.toAbsolutePath().getParent());
+            String json = gson.toJson(products, PRODUCT_LIST_TYPE);
+            Files.writeString(file, json, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo guardar el archivo " + file, e
+            );
+        }
+    }
+}
+```
+
+Veamos las partes más importantes:
+
+- **`file` y `Path`:** `Path` representa la ubicación de un archivo. El constructor sin parámetros usa `data/products.json`, una ruta relativa a la carpeta desde la que se ejecuta la aplicación (en nuestro caso, la raíz del proyecto). El segundo constructor permite indicar otra ruta, lo que será útil para hacer pruebas.
+- **`Gson` con `setPrettyPrinting()`:** `GsonBuilder` configura el objeto antes de crearlo. Con `setPrettyPrinting()` el JSON se escribe con sangría y saltos de línea, para que sea fácil de leer.
+- **`PRODUCT_LIST_TYPE` y `TypeToken`:** al compilar, Java *borra* los tipos genéricos, por lo que en tiempo de ejecución una `List<Product>` es solo una `List`, y Gson no sabría qué objetos crear. `TypeToken` es un truco para conservar esa información: las llaves `{}` crean una subclase anónima que "recuerda" el tipo completo `List<Product>`.
+- **`exists()` y `findAll()`:** si el archivo no existe, `findAll()` retorna una lista vacía en lugar de fallar. Si existe, lo lee completo con `Files.readString(...)` y `gson.fromJson(...)` lo convierte en una lista de productos. El `null` ocurre cuando el archivo está vacío.
+- **`save(...)`:** `Files.createDirectories(...)` crea la carpeta `data` si no existe, `gson.toJson(...)` convierte la lista en texto JSON y `Files.writeString(...)` lo escribe en el archivo, reemplazando su contenido anterior.
+- **`StandardCharsets.UTF_8`:** indica la codificación del archivo. Sin ella, letras como la `é` de "Teclado mecánico" podrían guardarse mal según el sistema operativo.
+- **`UncheckedIOException`:** leer y escribir archivos puede lanzar `IOException`, que es una excepción *verificada* y nos obligaría a declararla en todas las capas superiores. La envolvemos en una `UncheckedIOException`, que no exige declararla, junto con un mensaje que indica qué archivo falló.
+
+> **Dato curioso:** Gson crea los objetos `Product` sin llamar a su constructor. Asigna directamente cada atributo desde el JSON, incluido `id`, que es `final`. Por eso el producto conserva el mismo `id` que tenía cuando se guardó, en lugar de recibir uno nuevo.
+
+#### Usar el repositorio desde `ProductService`
+
+Ahora el servicio debe cargar los productos desde el repositorio al iniciar, y guardarlos cada vez que cambien. Modifica `ProductService` para que quede así:
+
+```java
+package cl.duoc.inventory.service;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.repository.ProductRepository;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+public class ProductService {
+    private final ProductRepository repository = new ProductRepository();
+    private final ObservableList<Product> products =
+            FXCollections.observableArrayList();
+
+    private ProductService() {
+        products.addAll(repository.findAll());
+    }
+
+    public static ProductService getInstance() {
+        return InstanceHolder.INSTANCE;
+    }
+
+    public ObservableList<Product> getProducts() {
+        return products;
+    }
+
+    public void addProduct(Product product) {
+        products.add(product);
+        saveProducts();
+    }
+
+    public boolean removeProduct(Product product) {
+        boolean removed = products.remove(product);
+        if (removed) {
+            saveProducts();
+        }
+        return removed;
+    }
+
+    public void saveProducts() {
+        repository.save(products);
+    }
+
+    private static class InstanceHolder {
+        private static final ProductService INSTANCE =
+                new ProductService();
+    }
+}
+```
+
+Los cambios respecto al paso 7 son:
+
+- **El constructor:** carga los productos guardados con `repository.findAll()`. Ya no incluimos los productos de ejemplo: nos sirvieron en los pasos anteriores para tener algo que mostrar en la tabla, pero en una aplicación real los datos los ingresan los usuarios. La primera vez que se ejecute la aplicación, el archivo no existirá y `findAll()` retornará una lista vacía, por lo que la tabla comenzará sin productos.
+- **`addProduct(...)` y `removeProduct(...)`:** después de modificar la lista, llaman a `saveProducts()`. En `removeProduct`, solo se guarda si realmente se eliminó algo.
+- **`saveProducts()`:** es un método público que escribe la lista actual en el archivo. Lo necesitamos para la edición, como veremos a continuación.
+
+Recuerda que, al editar, `ProductController` modifica el producto con sus *setters*, y el servicio no se entera de ese cambio. Por eso, en el método `handleSaveClick()` del `ProductController`, agrega la llamada al servicio justo después de actualizar el producto existente:
+
+```java
+} else {
+    product.setName(name);
+    product.setDescription(description);
+    product.setCategory(category);
+    product.setPrice(price);
+    product.setQuantity(quantity);
+    ProductService.getInstance().saveProducts();
+}
+```
+
+#### Excluir los datos del repositorio Git
+
+El archivo `data/products.json` contiene los datos de uso de cada persona, no código fuente, por lo que no debería subirse a Git. Agrega estas líneas al final del archivo `.gitignore`:
+
+```text
+### Datos de la aplicación (JSON)
+data/
+```
+
+#### Probar la persistencia
+
+Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. La tabla aparecerá vacía, y el archivo `data/products.json` se creará en la raíz del proyecto cuando guardes tu primer producto. Para comprobar que todo funciona:
+
+1. Crea al menos tres productos nuevos, edita uno y elimina otro.
+2. Cierra la aplicación y vuelve a ejecutarla: los cambios deben seguir ahí.
+3. Abre `data/products.json` en tu editor, cambia algún valor y vuelve a ejecutar la aplicación: verás el cambio reflejado en la tabla.
+4. Si quieres volver al estado inicial, cierra la aplicación y elimina la carpeta `data`.
+
+> **Tip pedagógico:** al editar a mano el JSON, cuida que el formato siga siendo válido (comillas, comas y llaves). Si lo dañas, Gson no podrá leerlo y la aplicación fallará al iniciar, lo que muestra por qué un repositorio real debería manejar este tipo de errores.
+
 ---
 
 ## Autor

@@ -61,6 +61,7 @@ public class ProductController {
             product.setCategory(category);
             product.setPrice(price);
             product.setQuantity(quantity);
+            ProductService.getInstance().saveProducts();
         }
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
