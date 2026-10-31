@@ -6,15 +6,15 @@ public class Product {
     private final String id;
     private String name;
     private String description;
-    private String category;
+    private String categoryId;
     private double price;
     private int quantity;
 
-    public Product(String name, String description, String category, double price, int quantity) {
+    public Product(String name, String description, String categoryId, double price, int quantity) {
         this.id = UUID.randomUUID().toString();
         this.name = name;
         this.description = description;
-        this.category = category;
+        this.categoryId = categoryId;
         this.price = price;
         this.quantity = quantity;
     }
@@ -39,12 +39,12 @@ public class Product {
         this.description = description;
     }
 
-    public String getCategory() {
-        return category;
+    public String getCategoryId() {
+        return categoryId;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setCategoryId(String categoryId) {
+        this.categoryId = categoryId;
     }
 
     public double getPrice() {

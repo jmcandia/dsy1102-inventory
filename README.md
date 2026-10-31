@@ -34,6 +34,9 @@ Aplicación de escritorio para la gestión de inventario, desarrollada con **Jav
   - [11. Integrar la navegación a la vista product-view.fxml](#11-integrar-la-navegación-a-la-vista-product-viewfxml)
   - [12. Aplicar estilos con BootstrapFX y CSS propio](#12-aplicar-estilos-con-bootstrapfx-y-css-propio)
   - [13. Persistir los datos con Gson](#13-persistir-los-datos-con-gson)
+  - [14. Crear el modelo Category y su servicio](#14-crear-el-modelo-category-y-su-servicio)
+  - [15. Relacionar Product con Category](#15-relacionar-product-con-category)
+  - [16. Gestionar las categorías desde la aplicación](#16-gestionar-las-categorías-desde-la-aplicación)
 - [Autor](#autor)
 - [Licencia](#licencia)
 
@@ -53,6 +56,7 @@ Este proyecto tiene como propósito guiar a los estudiantes en la transición de
 - **Ciclo de vida de JavaFX**: Entender el rol de `Application`, `Stage`, `Scene` y `FXMLLoader`.
 - **Navegación entre ventanas**: Abrir formularios en un `Stage` modal y compartir datos entre controladores mediante una capa de servicio.
 - **Operaciones CRUD**: Crear, consultar, editar y eliminar productos desde la interfaz, con validación de los datos ingresados.
+- **Relaciones entre entidades**: Separar la categoría en su propia entidad y relacionarla con los productos mediante su identificador, evitando eliminar categorías que estén en uso.
 - **Estilos con CSS y `BootstrapFX`**: Aplicar clases de estilo predefinidas y hojas de estilo propias para separar la apariencia de la lógica de la aplicación.
 - **Persistencia de Datos con `Gson`**: Serializar y deserializar las entidades del dominio a formato **JSON** mediante la biblioteca **Gson**, de modo que el inventario sobreviva entre ejecuciones de la aplicación. Se abordan la lectura y escritura de archivos, el manejo de colecciones genéricas (`TypeToken`) y la separación entre la capa de persistencia y la lógica de negocio.
 - **Buenas prácticas de POO**: Aplicar cohesión, bajo acoplamiento y validaciones en la capa de negocio.
@@ -1671,6 +1675,649 @@ data/
 4. Si quieres volver al estado inicial, cierra la aplicación y elimina la carpeta `data`.
 
 > **Tip pedagógico:** al editar a mano el JSON, cuida que el formato siga siendo válido (comillas, comas y llaves). Si lo dañas, Gson no podrá leerlo y la aplicación fallará al iniciar, lo que muestra por qué un repositorio real debería manejar este tipo de errores.
+
+### 14. Crear el modelo `Category` y su servicio
+
+Hoy las categorías están escritas directamente en el código de `ProductController` ("Periféricos", "Electrónica" y "Accesorios"), y cada producto guarda el nombre de su categoría como texto. Si quisiéramos agregar una categoría nueva, tendríamos que modificar el código y compilar de nuevo. Además, si renombráramos una categoría, los productos existentes quedarían con un nombre desactualizado.
+
+La solución es tratar la categoría como una **entidad** propia, igual que `Product`: con su modelo, su repositorio y su servicio. En este paso creamos esas tres piezas; en los pasos siguientes las conectaremos con los productos y con la interfaz.
+
+#### Crear el modelo `Category`
+
+Crea la clase `Category` en la ruta `src/main/java/cl/duoc/inventory/model/` con el siguiente código:
+
+```java
+package cl.duoc.inventory.model;
+
+import java.util.UUID;
+
+public class Category {
+    private final String id;
+    private String name;
+
+    public Category(String name) {
+        this.id = UUID.randomUUID().toString();
+        this.name = name;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+}
+```
+
+Veamos sus características:
+
+- **Identificador inmutable:** igual que en `Product`, `id` es `final` y lo genera la propia clase con un `UUID`. Más adelante, los productos usarán este `id` para referirse a su categoría.
+- **`toString()`:** un `ComboBox` muestra cada elemento usando su método `toString()`. Al retornar el nombre, el formulario de productos mostrará "Periféricos" en lugar de algo como `cl.duoc.inventory.model.Category@3f2b8c1e`, aunque internamente el combo guarda el objeto completo.
+
+#### Crear el repositorio `CategoryRepository`
+
+Crea la clase `CategoryRepository` en la ruta `src/main/java/cl/duoc/inventory/repository/` con el siguiente código:
+
+```java
+package cl.duoc.inventory.repository;
+
+import cl.duoc.inventory.model.Category;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class CategoryRepository {
+    private static final Type CATEGORY_LIST_TYPE =
+            new TypeToken<List<Category>>() {
+            }.getType();
+
+    private final Path file;
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
+
+    public CategoryRepository() {
+        this(Path.of("data", "categories.json"));
+    }
+
+    public CategoryRepository(Path file) {
+        this.file = file;
+    }
+
+    public boolean exists() {
+        return Files.exists(file);
+    }
+
+    public List<Category> findAll() {
+        if (!exists()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            String json = Files.readString(file, StandardCharsets.UTF_8);
+            List<Category> categories = gson.fromJson(json, CATEGORY_LIST_TYPE);
+            return categories != null ? categories : new ArrayList<>();
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo leer el archivo " + file, e
+            );
+        }
+    }
+
+    public void save(List<Category> categories) {
+        try {
+            Files.createDirectories(file.toAbsolutePath().getParent());
+            String json = gson.toJson(categories, CATEGORY_LIST_TYPE);
+            Files.writeString(file, json, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo guardar el archivo " + file, e
+            );
+        }
+    }
+}
+```
+
+Esta clase es casi idéntica a `ProductRepository`: solo cambian el tipo de los elementos (`Category`) y el archivo donde se guardan (`data/categories.json`). Por eso no repetimos su explicación; puedes volver al paso 13 si necesitas repasarla.
+
+> **Nota:** esta duplicación es una señal de que, en un proyecto más grande, convendría extraer una clase genérica que sirva para cualquier entidad. En esta guía mantenemos dos clases separadas para que cada una se pueda leer de forma independiente.
+
+#### Crear el servicio `CategoryService`
+
+Crea la clase `CategoryService` en la ruta `src/main/java/cl/duoc/inventory/service/` con el siguiente código:
+
+```java
+package cl.duoc.inventory.service;
+
+import cl.duoc.inventory.model.Category;
+import cl.duoc.inventory.repository.CategoryRepository;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+import java.util.Optional;
+
+public class CategoryService {
+    public static final String NO_CATEGORY = "Sin categoría";
+
+    private final CategoryRepository repository = new CategoryRepository();
+    private final ObservableList<Category> categories =
+            FXCollections.observableArrayList();
+
+    private CategoryService() {
+        if (repository.exists()) {
+            categories.addAll(repository.findAll());
+        } else {
+            categories.addAll(
+                    new Category("Periféricos"),
+                    new Category("Electrónica"),
+                    new Category("Accesorios")
+            );
+            saveCategories();
+        }
+    }
+
+    public static CategoryService getInstance() {
+        return InstanceHolder.INSTANCE;
+    }
+
+    public ObservableList<Category> getCategories() {
+        return categories;
+    }
+
+    public Optional<Category> findById(String id) {
+        return categories.stream()
+                .filter(category -> category.getId().equals(id))
+                .findFirst();
+    }
+
+    public String getCategoryName(String id) {
+        return findById(id)
+                .map(Category::getName)
+                .orElse(NO_CATEGORY);
+    }
+
+    public boolean isNameTaken(String name, Category ignored) {
+        return categories.stream()
+                .filter(category -> category != ignored)
+                .anyMatch(category -> category.getName().equalsIgnoreCase(name));
+    }
+
+    public void addCategory(Category category) {
+        categories.add(category);
+        saveCategories();
+    }
+
+    public boolean removeCategory(Category category) {
+        boolean removed = categories.remove(category);
+        if (removed) {
+            saveCategories();
+        }
+        return removed;
+    }
+
+    public void saveCategories() {
+        repository.save(categories);
+    }
+
+    private static class InstanceHolder {
+        private static final CategoryService INSTANCE =
+                new CategoryService();
+    }
+}
+```
+
+Veamos cómo funciona:
+
+- **Singleton y lista observable:** sigue el mismo patrón que `ProductService` (paso 7): una única instancia, creada con `InstanceHolder`, que mantiene una `ObservableList` para que las vistas se actualicen solas.
+- **El constructor:** si el archivo existe, carga las categorías guardadas. Si no existe, crea tres categorías iniciales y las guarda. A diferencia de los productos, aquí sí sembramos datos: las categorías son parte de la configuración de la aplicación, y sin ellas el formulario de productos no tendría opciones la primera vez que se ejecute. Más adelante, el usuario podrá modificarlas desde la interfaz.
+- **`findById(...)`:** busca una categoría por su `id` y retorna un `Optional<Category>`.
+- **`getCategoryName(...)`:** retorna el nombre de la categoría o el texto "Sin categoría" si no existe. Así, la tabla de productos nunca mostrará un valor vacío.
+- **`isNameTaken(...)`:** indica si ya existe una categoría con ese nombre, sin distinguir mayúsculas. El segundo parámetro permite ignorar la categoría que se está editando, para que pueda conservar su propio nombre.
+- **`addCategory(...)`, `removeCategory(...)` y `saveCategories()`:** igual que en `ProductService`, agregar y eliminar guardan automáticamente en el archivo.
+
+> **Concepto:** un `Optional<T>` es un contenedor que puede tener un valor o estar vacío. Obliga a quien lo usa a decidir qué hacer cuando el valor no existe, por ejemplo con `orElse(...)`, en lugar de arriesgarse a un `NullPointerException`.
+
+**Verificación:** Las clases nuevas todavía no se usan en ninguna vista, por lo que no verás cambios al ejecutar la aplicación. En el siguiente paso las conectamos con los productos.
+
+### 15. Relacionar `Product` con `Category`
+
+Ahora `Product` debe guardar una referencia a su categoría en lugar de su nombre. Usaremos el `id`: así, si una categoría cambia de nombre, todos sus productos siguen apuntando a ella sin necesidad de actualizarlos.
+
+Este paso modifica varios archivos que dependen entre sí, así que la aplicación no compilará hasta completarlos todos.
+
+#### Modificar `Product`
+
+En `src/main/java/cl/duoc/inventory/model/Product.java`, reemplaza el atributo `category` por `categoryId`:
+
+```java
+private String categoryId;
+```
+
+Luego, actualiza el constructor para que reciba y asigne el `id` de la categoría:
+
+```java
+public Product(String name, String description, String categoryId, double price, int quantity) {
+    this.id = UUID.randomUUID().toString();
+    this.name = name;
+    this.description = description;
+    this.categoryId = categoryId;
+    this.price = price;
+    this.quantity = quantity;
+}
+```
+
+Por último, reemplaza los métodos `getCategory()` y `setCategory(...)`:
+
+```java
+public String getCategoryId() {
+    return categoryId;
+}
+
+public void setCategoryId(String categoryId) {
+    this.categoryId = categoryId;
+}
+```
+
+Con esto, `Product` ya no conoce el nombre de su categoría, solo su identificador. Es el mismo principio que usa una base de datos relacional con una clave foránea.
+
+#### Consultar el uso de una categoría desde `ProductService`
+
+Para evitar eliminar una categoría que tiene productos asociados, el servicio debe poder responder si una categoría está en uso. Agrega el siguiente método en `ProductService`:
+
+```java
+public boolean isCategoryInUse(String categoryId) {
+    return products.stream()
+            .anyMatch(product -> categoryId.equals(product.getCategoryId()));
+}
+```
+
+`stream()` recorre la lista de productos y `anyMatch(...)` retorna `true` si al menos uno cumple la condición, que en este caso es tener ese `categoryId`.
+
+#### Usar las categorías en `ProductController`
+
+En `src/main/java/cl/duoc/inventory/controller/ProductController.java`, primero agrega las importaciones de `Category` y `CategoryService`:
+
+```java
+import cl.duoc.inventory.model.Category;
+import cl.duoc.inventory.service.CategoryService;
+```
+
+Cambia el tipo del `ComboBox`, que ahora contiene objetos `Category` en lugar de texto:
+
+```java
+@FXML
+private ComboBox<Category> cmbCategory;
+```
+
+En el método `initialize()`, reemplaza la línea que cargaba las categorías fijas por esta:
+
+```java
+cmbCategory.setItems(CategoryService.getInstance().getCategories());
+```
+
+En `handleSaveClick()`, la categoría seleccionada ahora es un objeto `Category`, y lo que guardamos en el producto es su `id`:
+
+```java
+Category category = cmbCategory.getValue();
+```
+
+```java
+Product newProduct = new Product(
+        name, description, category.getId(), price, quantity
+);
+```
+
+```java
+product.setCategoryId(category.getId());
+```
+
+Por último, en `setProduct(...)`, reemplaza la línea que asignaba la categoría al combo:
+
+```java
+cmbCategory.setValue(
+        CategoryService.getInstance()
+                .findById(product.getCategoryId())
+                .orElse(null)
+);
+```
+
+Veamos los cambios:
+
+- **`setItems(...)` en lugar de `addAll(...)`:** `addAll` copiaba los valores una sola vez. `setItems` conecta el combo directamente con la lista observable del servicio, por lo que cualquier categoría que se agregue o elimine después aparecerá o desaparecerá del combo automáticamente.
+- **`validateForm()` no cambia:** ya verificaba que `cmbCategory.getValue()` no fuera `null`, así que en `handleSaveClick()` podemos usar `category.getId()` sin riesgo.
+- **`findById(...).orElse(null)`:** si la categoría del producto ya no existe, el combo queda sin selección, lo que obliga al usuario a elegir una al guardar.
+
+#### Mostrar el nombre en `InventoryController`
+
+La tabla de productos mostraba la categoría con `PropertyValueFactory<>("category")`, pero ahora `Product` solo tiene el `id`. Debemos calcular el texto a mostrar. En `InventoryController`, agrega las importaciones:
+
+```java
+import cl.duoc.inventory.service.CategoryService;
+import javafx.beans.property.SimpleStringProperty;
+```
+
+Y en `initialize()`, reemplaza la configuración de `colCategory` por:
+
+```java
+colCategory.setCellValueFactory(cellData -> new SimpleStringProperty(
+        CategoryService.getInstance()
+                .getCategoryName(cellData.getValue().getCategoryId())
+));
+```
+
+`setCellValueFactory` espera una función que, dada una fila (`cellData`), entregue el valor de la celda como un objeto observable. `PropertyValueFactory` lo hacía leyendo un getter, pero ahora el valor se obtiene consultando al servicio, así que escribimos la función nosotros. `SimpleStringProperty` envuelve el texto en el tipo que la tabla necesita.
+
+> **Nota:** los productos guardados antes de este paso tienen el campo `category` en `data/products.json`. Gson ignora los campos que ya no existen en la clase, por lo que esos productos quedan sin categoría y la tabla mostrará "Sin categoría". Para empezar con datos nuevos, cierra la aplicación y elimina el archivo `data/products.json`.
+
+**Verificación:** Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. Al crear un producto, el combo de categorías debe mostrar "Periféricos", "Electrónica" y "Accesorios", y la tabla debe mostrar el nombre de la categoría elegida. Se habrá creado el archivo `data/categories.json` con las tres categorías iniciales.
+
+### 16. Gestionar las categorías desde la aplicación
+
+Las tres categorías iniciales son un punto de partida, pero el objetivo era que la lista se pudiera expandir. En este paso agregamos una ventana para crear, editar y eliminar categorías, a la que se accede desde el menú **Archivo → Categorías**, que hasta ahora no hacía nada.
+
+#### Crear la vista `category-view.fxml`
+
+Crea el archivo `category-view.fxml` en la ruta `src/main/resources/cl/duoc/inventory/view/` con el siguiente código:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.net.URL?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            xmlns="http://javafx.com/javafx"
+            fx:controller="cl.duoc.inventory.controller.CategoryController"
+            prefHeight="450.0" prefWidth="500.0">
+    <stylesheets>
+        <URL value="@../css/styles.css"/>
+    </stylesheets>
+    <top>
+        <VBox spacing="5.0">
+            <padding>
+                <Insets top="20.0" right="24.0"
+                        bottom="15.0" left="24.0"/>
+            </padding>
+            <Label fx:id="lblTitle"
+                   text="Nueva categoría"
+                   styleClass="page-title"/>
+            <Label text="Selecciona una categoría de la tabla para editarla o eliminarla"
+                   styleClass="page-subtitle"/>
+        </VBox>
+    </top>
+    <center>
+        <VBox spacing="12.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="10.0" left="24.0"/>
+            </padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <TextField fx:id="txtName"
+                           promptText="Nombre de la categoría"
+                           HBox.hgrow="ALWAYS"/>
+                <Button text="Guardar"
+                        styleClass="btn, btn-primary"
+                        onAction="#handleSaveClick"/>
+                <Button text="Nueva"
+                        styleClass="btn, btn-default"
+                        onAction="#handleNewClick"/>
+            </HBox>
+            <TableView fx:id="tblCategories"
+                       VBox.vgrow="ALWAYS">
+                <columnResizePolicy>
+                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                </columnResizePolicy>
+                <columns>
+                    <TableColumn fx:id="colName"
+                                 text="Nombre"/>
+                </columns>
+                <placeholder>
+                    <Label text="No hay categorías registradas"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="20.0" left="24.0"/>
+            </padding>
+            <Button fx:id="btnDelete"
+                    text="Eliminar"
+                    styleClass="btn, btn-danger"
+                    onAction="#handleDeleteClick"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Cerrar"
+                    styleClass="btn, btn-default"
+                    onAction="#handleCloseClick"/>
+        </HBox>
+    </bottom>
+</BorderPane>
+```
+
+Es una vista similar a las anteriores, con algunas decisiones nuevas:
+
+- **Una sola ventana para crear y editar:** el campo `txtName` y el botón **Guardar** sirven para ambas acciones. El título `lblTitle` indica en qué modo estamos, y el botón **Nueva** vuelve al modo de creación.
+- **`HBox.hgrow="ALWAYS"` en el `TextField`:** hace que el campo ocupe todo el ancho disponible de la fila, dejando a los botones a su derecha con su tamaño natural.
+- **`TableView` de una columna:** muestra las categorías existentes. Al seleccionar una fila, el controlador cargará su nombre en el campo para poder editarla.
+- **`btnDelete` con `fx:id`:** el controlador lo mantiene desactivado mientras no haya una categoría seleccionada.
+
+#### Crear el controlador `CategoryController`
+
+Crea la clase `CategoryController` en la ruta `src/main/java/cl/duoc/inventory/controller/` con el siguiente código:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.model.Category;
+import cl.duoc.inventory.service.CategoryService;
+import cl.duoc.inventory.service.ProductService;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+
+import java.util.Optional;
+
+public class CategoryController {
+    @FXML
+    private Label lblTitle;
+
+    @FXML
+    private TextField txtName;
+
+    @FXML
+    private TableView<Category> tblCategories;
+
+    @FXML
+    private TableColumn<Category, String> colName;
+
+    @FXML
+    private Button btnDelete;
+
+    private Category selectedCategory;
+
+    @FXML
+    protected void initialize() {
+        colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+        tblCategories.setItems(CategoryService.getInstance().getCategories());
+
+        tblCategories.getSelectionModel().selectedItemProperty()
+                .addListener((observable, oldValue, newValue) -> {
+                    if (newValue != null) {
+                        showEditMode(newValue);
+                    }
+                });
+
+        showCreateMode();
+    }
+
+    @FXML
+    protected void handleSaveClick() {
+        String name = txtName.getText().trim();
+
+        if (name.isEmpty()) {
+            showWarning("Ingresa un nombre para la categoría.");
+            return;
+        }
+
+        if (CategoryService.getInstance().isNameTaken(name, selectedCategory)) {
+            showWarning("Ya existe una categoría con ese nombre.");
+            return;
+        }
+
+        if (selectedCategory == null) {
+            CategoryService.getInstance().addCategory(new Category(name));
+        } else {
+            selectedCategory.setName(name);
+            CategoryService.getInstance().saveCategories();
+            tblCategories.refresh();
+        }
+
+        showCreateMode();
+    }
+
+    @FXML
+    protected void handleNewClick() {
+        showCreateMode();
+    }
+
+    @FXML
+    protected void handleDeleteClick() {
+        if (ProductService.getInstance()
+                .isCategoryInUse(selectedCategory.getId())) {
+            showWarning(
+                    "No se puede eliminar la categoría \""
+                            + selectedCategory.getName()
+                            + "\" porque tiene productos asociados."
+            );
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Eliminar categoría");
+        alert.setHeaderText("¿Estás seguro de eliminar esta categoría?");
+        alert.setContentText("Categoría: " + selectedCategory.getName());
+
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            CategoryService.getInstance().removeCategory(selectedCategory);
+            showCreateMode();
+        }
+    }
+
+    @FXML
+    protected void handleCloseClick() {
+        txtName.getScene().getWindow().hide();
+    }
+
+    private void showCreateMode() {
+        selectedCategory = null;
+        tblCategories.getSelectionModel().clearSelection();
+
+        lblTitle.setText("Nueva categoría");
+        txtName.clear();
+        btnDelete.setDisable(true);
+    }
+
+    private void showEditMode(Category category) {
+        selectedCategory = category;
+
+        lblTitle.setText("Editar categoría");
+        txtName.setText(category.getName());
+        btnDelete.setDisable(false);
+    }
+
+    private void showWarning(String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Categorías");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+}
+```
+
+Veamos el controlador por partes:
+
+- **El campo `selectedCategory`:** igual que `product` en `ProductController`, define el modo. Si es `null`, estamos creando; si contiene una categoría, la estamos editando.
+- **El *listener* de selección:** `selectedItemProperty().addListener(...)` registra una función que JavaFX ejecuta cada vez que cambia la fila seleccionada. Recibe tres valores: la propiedad observada, el valor anterior y el nuevo. Si hay una fila seleccionada (`newValue != null`), pasamos al modo de edición.
+- **`showCreateMode()` y `showEditMode(...)`:** concentran los cambios de la interfaz de cada modo: el título, el contenido del campo y si el botón **Eliminar** está activo. `clearSelection()` dispara el *listener* con un valor `null`, que ignoramos con el `if`.
+- **`handleSaveClick()`:** valida que el nombre no esté vacío y que no exista otro igual, usando `isNameTaken(name, selectedCategory)`. A diferencia del formulario de productos, aquí sí avisamos al usuario con una alerta de tipo `WARNING`. Luego, según el modo, agrega una categoría nueva o modifica la existente con `setName(...)`. Como `Category` no usa propiedades observables, tras editar guardamos con `saveCategories()` y llamamos a `refresh()` para que la tabla vuelva a leer los nombres.
+- **`handleDeleteClick()`:** antes de eliminar, consulta `ProductService.isCategoryInUse(...)`. Si hay productos asociados, muestra una advertencia y no elimina nada. Esto evita que queden productos apuntando a una categoría que ya no existe. Si no está en uso, pide confirmación igual que el formulario de productos.
+- **`handleCloseClick()`:** cierra la ventana, con la misma técnica del paso 10.
+
+#### Abrir la ventana desde el menú
+
+Primero, conecta el elemento de menú **Categorías** con un manejador. En `inventory-view.fxml`, reemplaza la línea `<MenuItem text="Categorías"/>` por:
+
+```xml
+<MenuItem text="Categorías"
+          onAction="#handleCategoriesClick"/>
+```
+
+Luego, en `InventoryController`, agrega el manejador y el método que abre la ventana, antes de `openProductView(...)`:
+
+```java
+@FXML
+protected void handleCategoriesClick() {
+    openCategoryView();
+}
+
+private void openCategoryView() {
+    try {
+        FXMLLoader loader = new FXMLLoader(
+                getClass().getResource(
+                        "/cl/duoc/inventory/view/category-view.fxml"
+                )
+        );
+        Parent root = loader.load();
+
+        Stage stage = new Stage();
+        stage.setTitle("Categorías");
+        Scene scene = new Scene(root);
+        scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+        stage.setScene(scene);
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.showAndWait();
+        tblProducts.refresh();
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+Es el mismo patrón de `openProductView(...)`, más simple porque no necesita enviarle datos al controlador. Al cerrar la ventana, `tblProducts.refresh()` actualiza la tabla de productos, por si se renombró alguna categoría que estaba en uso.
+
+**Verificación:** Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run` y abre **Archivo → Categorías**. Para comprobar que todo funciona:
+
+1. Crea una categoría nueva, por ejemplo "Hogar", y verifica que aparece en la tabla.
+2. Intenta crear otra con el mismo nombre: deberías ver una advertencia.
+3. Abre **Nuevo producto**: el combo debe incluir "Hogar".
+4. Crea un producto con la categoría "Hogar", vuelve a **Categorías**, renómbrala y ciérrala: la tabla de productos debe mostrar el nombre nuevo.
+5. Intenta eliminar "Hogar" mientras tenga productos: deberías ver una advertencia. Elimina una categoría sin productos para comprobar que sí se elimina.
+6. Cierra y vuelve a abrir la aplicación: las categorías deben mantenerse, porque se guardan en `data/categories.json`.
 
 ---
 

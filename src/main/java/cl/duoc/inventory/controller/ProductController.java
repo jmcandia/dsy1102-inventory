@@ -1,6 +1,8 @@
 package cl.duoc.inventory.controller;
 
+import cl.duoc.inventory.model.Category;
 import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.service.CategoryService;
 import cl.duoc.inventory.service.ProductService;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -18,7 +20,7 @@ public class ProductController {
     private TextArea txtDescription;
 
     @FXML
-    private ComboBox<String> cmbCategory;
+    private ComboBox<Category> cmbCategory;
 
     @FXML
     private TextField txtPrice;
@@ -32,7 +34,7 @@ public class ProductController {
 
     @FXML
     protected void initialize() {
-        cmbCategory.getItems().addAll("Periféricos", "Electrónica", "Accesorios");
+        cmbCategory.setItems(CategoryService.getInstance().getCategories());
 
         btnDelete.setVisible(false);
         btnDelete.setManaged(false);
@@ -46,19 +48,19 @@ public class ProductController {
 
         String name = txtName.getText().trim();
         String description = txtDescription.getText().trim();
-        String category = cmbCategory.getValue();
+        Category category = cmbCategory.getValue();
         double price = Double.parseDouble(txtPrice.getText());
         int quantity = Integer.parseInt(txtQuantity.getText());
 
         if (product == null) {
             Product newProduct = new Product(
-                    name, description, category, price, quantity
+                    name, description, category.getId(), price, quantity
             );
             ProductService.getInstance().addProduct(newProduct);
         } else {
             product.setName(name);
             product.setDescription(description);
-            product.setCategory(category);
+            product.setCategoryId(category.getId());
             product.setPrice(price);
             product.setQuantity(quantity);
             ProductService.getInstance().saveProducts();
@@ -115,7 +117,11 @@ public class ProductController {
 
         txtName.setText(product.getName());
         txtDescription.setText(product.getDescription());
-        cmbCategory.setValue(product.getCategory());
+        cmbCategory.setValue(
+                CategoryService.getInstance()
+                        .findById(product.getCategoryId())
+                        .orElse(null)
+        );
         txtPrice.setText(String.valueOf(product.getPrice()));
         txtQuantity.setText(String.valueOf(product.getQuantity()));
 

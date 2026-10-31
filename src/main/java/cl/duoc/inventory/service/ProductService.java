@@ -35,6 +35,11 @@ public class ProductService {
         return removed;
     }
 
+    public boolean isCategoryInUse(String categoryId) {
+        return products.stream()
+                .anyMatch(product -> categoryId.equals(product.getCategoryId()));
+    }
+
     public void saveProducts() {
         repository.save(products);
     }

@@ -18,7 +18,8 @@
                     <MenuItem text="Nuevo"
                               onAction="#handleNewProductClick"/>
                 </Menu>
-                <MenuItem text="Categorías"/>
+                <MenuItem text="Categorías"
+                          onAction="#handleCategoriesClick"/>
                 <SeparatorMenuItem/>
                 <MenuItem text="Salir"/>
             </Menu>

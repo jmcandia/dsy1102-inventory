@@ -1,7 +1,9 @@
 package cl.duoc.inventory.controller;
 
 import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.service.CategoryService;
 import cl.duoc.inventory.service.ProductService;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -31,7 +33,10 @@ public class InventoryController {
     @FXML
     protected void initialize() {
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
-        colCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
+        colCategory.setCellValueFactory(cellData -> new SimpleStringProperty(
+                CategoryService.getInstance()
+                        .getCategoryName(cellData.getValue().getCategoryId())
+        ));
         colPrice.setCellValueFactory(new PropertyValueFactory<>("price"));
         colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
 
@@ -52,6 +57,33 @@ public class InventoryController {
     @FXML
     protected void handleNewProductClick() {
         openProductView(null);
+    }
+
+    @FXML
+    protected void handleCategoriesClick() {
+        openCategoryView();
+    }
+
+    private void openCategoryView() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource(
+                            "/cl/duoc/inventory/view/category-view.fxml"
+                    )
+            );
+            Parent root = loader.load();
+
+            Stage stage = new Stage();
+            stage.setTitle("Categorías");
+            Scene scene = new Scene(root);
+            scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+            stage.setScene(scene);
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.showAndWait();
+            tblProducts.refresh();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void openProductView(Product product) {
