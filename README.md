@@ -38,6 +38,11 @@ Aplicación de escritorio para la gestión de inventario, desarrollada con **Jav
   - [15. Relacionar Product con Category](#15-relacionar-product-con-category)
   - [16. Gestionar las categorías desde la aplicación](#16-gestionar-las-categorías-desde-la-aplicación)
   - [17. Cambiar el ícono de las ventanas (opcional)](#17-cambiar-el-ícono-de-las-ventanas-opcional)
+- [Conceptos Avanzados](#conceptos-avanzados)
+  - [Inyección de dependencias](#inyección-de-dependencias)
+  - [Repositorio genérico](#repositorio-genérico)
+  - [Aplicar DI al proyecto](#aplicar-di-al-proyecto)
+  - [Antes y después](#antes-y-después)
 - [Autor](#autor)
 - [Licencia](#licencia)
 
@@ -58,6 +63,7 @@ Este proyecto tiene como propósito guiar a los estudiantes en la transición de
 - **Navegación entre ventanas**: Abrir formularios en un `Stage` modal y compartir datos entre controladores mediante una capa de servicio.
 - **Operaciones CRUD**: Crear, consultar, editar y eliminar productos desde la interfaz, con validación de los datos ingresados.
 - **Relaciones entre entidades**: Separar la categoría en su propia entidad y relacionarla con los productos mediante su identificador, evitando eliminar categorías que estén en uso.
+- **Inyección de dependencias y repositorio genérico**: Entender cómo reducir el acoplamiento entre capas, usar clases genéricas para evitar código duplicado y escribir pruebas con repositorios falsos (sección de conceptos avanzados).
 - **Estilos con CSS y `BootstrapFX`**: Aplicar clases de estilo predefinidas y hojas de estilo propias para separar la apariencia de la lógica de la aplicación.
 - **Persistencia de Datos con `Gson`**: Serializar y deserializar las entidades del dominio a formato **JSON** mediante la biblioteca **Gson**, de modo que el inventario sobreviva entre ejecuciones de la aplicación. Se abordan la lectura y escritura de archivos, el manejo de colecciones genéricas (`TypeToken`) y la separación entre la capa de persistencia y la lógica de negocio.
 - **Buenas prácticas de POO**: Aplicar cohesión, bajo acoplamiento y validaciones en la capa de negocio.
@@ -2412,6 +2418,471 @@ Cada `Stage` tiene su propia lista de íconos y no hereda la de la ventana princ
 **Verificación:** Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. Deberías ver tu imagen en la barra de título y en la barra de tareas, y también en las ventanas de producto y de categorías. Si sigues viendo el ícono de Java, revisa que el archivo esté en la carpeta `images` y que su nombre coincida con `ICON_PATH`. Usa siempre `clean` al ejecutar, para que Maven copie los recursos nuevos.
 
 > **Tip pedagógico:** prueba con distintas imágenes. También puedes agregar dos versiones de tamaños diferentes con `stage.getIcons().addAll(...)` y ver cuál elige JavaFX en cada lugar.
+
+## Conceptos Avanzados
+
+Esta sección complementa los pasos anteriores y no modifica el proyecto que construiste. Presenta dos ideas que mejoran el diseño de la aplicación, la **inyección de dependencias** y el **repositorio genérico**, y muestra cómo podrían aplicarse a este proyecto.
+
+### Inyección de dependencias
+
+#### Definiciones
+
+Antes de ver el código, conviene fijar el vocabulario:
+
+- **Dependencia:** cualquier objeto que una clase necesita para hacer su trabajo. Por ejemplo, `ProductService` depende de un repositorio para guardar los productos, y `ProductController` depende de `ProductService` y de `CategoryService`.
+- **Acoplamiento:** el grado en que una clase conoce los detalles de otra y depende de ellos. Con un acoplamiento alto, un cambio en una clase obliga a modificar las que la usan.
+- **Inversión de control (IoC):** en lugar de que cada clase cree o busque por sí misma lo que necesita, un elemento externo se lo entrega. Se "invierte" quién tiene el control de crear los objetos.
+- **Principio de inversión de dependencias (DIP):** es la letra **D** de los principios SOLID. Dice que las clases de alto nivel, que contienen la lógica, no deberían depender de clases concretas de bajo nivel, sino de **abstracciones** como las interfaces. En nuestro caso, `ProductService` no debería depender de `JsonRepository` (un detalle sobre cómo se guardan los datos), sino de una interfaz `Repository<Product>`.
+- **Inyección de dependencias (DI):** es la técnica que aplica la inversión de control. Una clase **recibe** sus dependencias desde afuera, normalmente a través de su constructor, en lugar de crearlas con `new` o de pedirlas a un Singleton.
+- **Raíz de composición (*composition root*):** el único lugar de la aplicación donde se crean los objetos concretos y se conectan entre sí. En nuestro proyecto, sería `InventoryApplication.start(...)`.
+- **Pure DI:** hacer inyección de dependencias "a mano", usando solo constructores y código Java normal, sin ninguna biblioteca externa.
+- **Contenedor de DI (*framework*):** una biblioteca que crea y conecta los objetos automáticamente, como Spring, Guice o Dagger. Resulta muy útil en aplicaciones grandes, pero no es necesaria para aplicar DI.
+
+> **Concepto:** inyectar una dependencia no requiere nada sofisticado. Pasarle un objeto a un constructor ya es inyección de dependencias; los frameworks solo automatizan ese trabajo.
+
+#### ¿Por qué es conveniente?
+
+- **Dependencias explícitas:** basta con leer el constructor de una clase para saber qué necesita. Sin DI, esas necesidades quedan escondidas dentro de los métodos, en llamadas como `ProductService.getInstance()`.
+- **Bajo acoplamiento:** como la clase depende de una interfaz y no de una implementación concreta, puede funcionar con cualquier objeto que cumpla ese contrato.
+- **Facilidad para probar:** en una prueba podemos entregarle a un servicio un repositorio falso que guarda los datos en memoria, sin leer ni escribir archivos reales.
+- **Facilidad para cambiar:** si más adelante los datos se guardaran en una base de datos, solo cambiaría la raíz de composición, que elegiría otra implementación de `Repository`. Los servicios y los controladores quedarían intactos.
+- **Sin estado global oculto:** un Singleton con `getInstance()` es, en el fondo, una variable global: cualquier clase puede usarlo sin declararlo, y las pruebas comparten su estado.
+- **Control sobre las instancias:** es la raíz de composición la que decide cuántas instancias existen y cuándo se crean, en lugar de que cada clase lo decida por su cuenta.
+
+#### El acoplamiento en nuestro proyecto
+
+Revisemos dos líneas de nuestro código actual. Dentro de `ProductService` (paso 13), el servicio crea su propio repositorio:
+
+```java
+private final ProductRepository repository = new ProductRepository();
+```
+
+Y dentro de `ProductController` (paso 10), el controlador busca el servicio a través de un Singleton:
+
+```java
+ProductService.getInstance().addProduct(newProduct);
+```
+
+Esto tiene varias consecuencias:
+
+- Para probar `ProductService` habría que leer y escribir el archivo real `data/products.json`, porque no hay forma de reemplazar el repositorio.
+- Las dependencias de los controladores no se ven en ninguna parte: solo se descubren leyendo todo el código.
+- El servicio conoce un detalle que no le corresponde: que los datos se guardan en un archivo JSON, y en cuál.
+
+> **Nota:** esto no significa que el Singleton haya sido un error. Para aprender JavaFX era la forma más simple de compartir datos entre ventanas. Aquí mostramos el paso siguiente, cuando el proyecto crece y queremos pruebas y flexibilidad.
+
+#### Pure DI: sin frameworks
+
+La idea de Pure DI es construir el grafo de objetos en un solo lugar, la raíz de composición, y pasarlos hacia abajo mediante constructores:
+
+```text
+InventoryApplication (raíz de composición)
+├── crea  JsonRepository<Product>   ─┐
+├── crea  JsonRepository<Category>   │ se entregan por constructor
+├── crea  ProductService(repositorio)
+├── crea  CategoryService(repositorio)
+└── crea  ControllerFactory(servicios)
+          └── crea los controladores con los servicios que necesitan
+```
+
+Este enfoque no necesita bibliotecas: es solo Java. Un framework de DI se justifica cuando hay decenas de clases y la raíz de composición se vuelve larga y repetitiva. En una aplicación de este tamaño, hacerlo a mano es más claro y permite ver exactamente qué ocurre.
+
+### Repositorio genérico
+
+#### El problema de la duplicación
+
+`ProductRepository` (paso 13) y `CategoryRepository` (paso 14) son casi idénticas. Solo cambian tres detalles: el tipo de los elementos (`Product` o `Category`), el `TypeToken` que lo representa y el nombre del archivo. El resto del código, que lee y escribe JSON, es el mismo. Si encontráramos un error en una, tendríamos que corregirlo en ambas, y cada entidad nueva exigiría copiar la clase otra vez.
+
+La solución es una **clase genérica**.
+
+#### Clases genéricas
+
+Una clase genérica declara uno o más **parámetros de tipo** entre `<` y `>`, que se reemplazan por un tipo concreto al usarla. Ya usamos clases genéricas sin definirlas: `ObservableList<Product>`, `TableView<Product>` y `Optional<Category>`. En `JsonRepository<T>`, la `T` es un tipo que se decide al crear el repositorio:
+
+```java
+new JsonRepository<>(Path.of("data", "products.json"), Product.class)
+```
+
+Aquí `T` pasa a ser `Product`, y el compilador garantiza que `findAll()` retorne una `List<Product>` y que `save(...)` solo acepte productos. Con `Category.class`, se obtiene un repositorio de categorías con el mismo código.
+
+> **Concepto:** en tiempo de ejecución, Java "olvida" los tipos genéricos (*type erasure*): una `List<Product>` es solo una `List`. Gson necesita saber qué objetos crear, por eso `JsonRepository` recibe también la clase `Class<T>` (por ejemplo, `Product.class`) y construye con ella el tipo completo mediante `TypeToken.getParameterized(List.class, elementType)`. Es la versión genérica del `TypeToken` que usamos en el paso 13.
+
+#### La interfaz `Repository<T>` y la clase `JsonRepository<T>`
+
+Primero, definimos el contrato como una interfaz. Es la abstracción de la que dependerán los servicios:
+
+```java
+package cl.duoc.inventory.repository;
+
+import java.util.List;
+
+public interface Repository<T> {
+    boolean exists();
+
+    List<T> findAll();
+
+    void save(List<T> items);
+}
+```
+
+Luego, la implementación que guarda los datos en un archivo JSON. Es la combinación de las dos clases anteriores:
+
+```java
+package cl.duoc.inventory.repository;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class JsonRepository<T> implements Repository<T> {
+    private final Path file;
+    private final Type listType;
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .create();
+
+    public JsonRepository(Path file, Class<T> elementType) {
+        this.file = file;
+        this.listType = TypeToken
+                .getParameterized(List.class, elementType)
+                .getType();
+    }
+
+    @Override
+    public boolean exists() {
+        return Files.exists(file);
+    }
+
+    @Override
+    public List<T> findAll() {
+        if (!exists()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            String json = Files.readString(file, StandardCharsets.UTF_8);
+            List<T> items = gson.fromJson(json, listType);
+            return items != null ? items : new ArrayList<>();
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo leer el archivo " + file, e
+            );
+        }
+    }
+
+    @Override
+    public void save(List<T> items) {
+        try {
+            Files.createDirectories(file.toAbsolutePath().getParent());
+            String json = gson.toJson(items, listType);
+            Files.writeString(file, json, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "No se pudo guardar el archivo " + file, e
+            );
+        }
+    }
+}
+```
+
+Veamos los puntos clave:
+
+- **`implements Repository<T>`:** `JsonRepository` es una de las posibles implementaciones del contrato. Otra podría guardar en una base de datos, o en memoria para las pruebas.
+- **El constructor:** recibe el archivo y la clase de los elementos. Con ella calcula una sola vez `listType`, el tipo `List<T>` que Gson necesita para leer y escribir.
+- **`@Override`:** indica que el método implementa uno de la interfaz, y el compilador avisa si la firma no coincide.
+- **El resto:** es idéntico a `ProductRepository` y `CategoryRepository`, pero escrito una sola vez.
+
+Con esta clase, `ProductRepository` y `CategoryRepository` ya no hacen falta.
+
+### Aplicar DI al proyecto
+
+Veamos cómo quedaría el proyecto si aplicáramos Pure DI y el repositorio genérico. Los cambios son los siguientes.
+
+#### Servicios con inyección por constructor
+
+Los servicios ya no son Singletons: reciben su repositorio por el constructor, y dependen de la interfaz `Repository<T>`. Desaparecen `getInstance()` y `InstanceHolder`:
+
+```java
+package cl.duoc.inventory.service;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.repository.Repository;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+public class ProductService {
+    private final Repository<Product> repository;
+    private final ObservableList<Product> products =
+            FXCollections.observableArrayList();
+
+    public ProductService(Repository<Product> repository) {
+        this.repository = repository;
+        products.addAll(repository.findAll());
+    }
+
+    public ObservableList<Product> getProducts() {
+        return products;
+    }
+
+    public void addProduct(Product product) {
+        products.add(product);
+        saveProducts();
+    }
+
+    public boolean removeProduct(Product product) {
+        boolean removed = products.remove(product);
+        if (removed) {
+            saveProducts();
+        }
+        return removed;
+    }
+
+    public boolean isCategoryInUse(String categoryId) {
+        return products.stream()
+                .anyMatch(product -> categoryId.equals(product.getCategoryId()));
+    }
+
+    public void saveProducts() {
+        repository.save(products);
+    }
+}
+```
+
+`CategoryService` cambia de la misma forma: su constructor recibe un `Repository<Category>`. Fíjate en que los servicios ya no saben que existe un archivo JSON ni cómo se llama: solo conocen el contrato.
+
+#### Controladores y `ControllerFactory`
+
+Los controladores también reciben sus dependencias por el constructor. Por ejemplo, `ProductController`:
+
+```java
+public class ProductController {
+    private final ProductService productService;
+    private final CategoryService categoryService;
+
+    public ProductController(ProductService productService,
+                             CategoryService categoryService) {
+        this.productService = productService;
+        this.categoryService = categoryService;
+    }
+```
+
+En el resto de la clase, `ProductService.getInstance()` se reemplaza por el campo `productService` (y lo mismo con `categoryService`). `InventoryController` y `CategoryController` se modifican igual.
+
+Aparece un problema: normalmente es `FXMLLoader` quien crea los controladores, y para eso necesita un constructor sin parámetros. La solución es entregarle una **fábrica de controladores** con `setControllerFactory(...)`: una función que, dado el tipo de controlador que `FXMLLoader` necesita, retorna una instancia ya construida con sus dependencias:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.service.CategoryService;
+import cl.duoc.inventory.service.ProductService;
+import javafx.util.Callback;
+
+public class ControllerFactory implements Callback<Class<?>, Object> {
+    private final ProductService productService;
+    private final CategoryService categoryService;
+
+    public ControllerFactory(ProductService productService,
+                             CategoryService categoryService) {
+        this.productService = productService;
+        this.categoryService = categoryService;
+    }
+
+    @Override
+    public Object call(Class<?> controllerType) {
+        if (controllerType == InventoryController.class) {
+            return new InventoryController(
+                    productService, categoryService, this
+            );
+        }
+        if (controllerType == ProductController.class) {
+            return new ProductController(productService, categoryService);
+        }
+        if (controllerType == CategoryController.class) {
+            return new CategoryController(productService, categoryService);
+        }
+        throw new IllegalArgumentException(
+                "Controlador desconocido: " + controllerType.getName()
+        );
+    }
+}
+```
+
+Veamos cómo funciona:
+
+- **`implements Callback<Class<?>, Object>`:** `Callback` es una interfaz de JavaFX con un método `call` que recibe un valor y retorna otro. Aquí recibe la clase del controlador y retorna el controlador.
+- **Las dependencias:** la fábrica recibe los servicios una vez y los reparte a cada controlador que crea.
+- **`this` en `InventoryController`:** la ventana principal abre las ventanas de producto y de categorías, y esas también necesitan crear sus controladores con la fábrica. Por eso `InventoryController` la recibe como dependencia y la usa en `openProductView(...)` y `openCategoryView()`:
+
+```java
+FXMLLoader loader = new FXMLLoader(
+        getClass().getResource(
+                "/cl/duoc/inventory/view/product-view.fxml"
+        )
+);
+loader.setControllerFactory(controllerFactory);
+Parent root = loader.load();
+```
+
+- **El `throw`:** si `FXMLLoader` pide un controlador que la fábrica no conoce, falla con un mensaje claro en lugar de devolver `null`.
+
+#### La raíz de composición
+
+Finalmente, `InventoryApplication` es el único lugar que crea objetos concretos y los conecta:
+
+```java
+package cl.duoc.inventory;
+
+import cl.duoc.inventory.controller.ControllerFactory;
+import cl.duoc.inventory.model.Category;
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.repository.JsonRepository;
+import cl.duoc.inventory.repository.Repository;
+import cl.duoc.inventory.service.CategoryService;
+import cl.duoc.inventory.service.ProductService;
+import cl.duoc.inventory.util.WindowIcon;
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import org.kordamp.bootstrapfx.BootstrapFX;
+
+import java.io.IOException;
+import java.nio.file.Path;
+
+public class InventoryApplication extends Application {
+    @Override
+    public void start(Stage stage) throws IOException {
+        Repository<Product> productRepository = new JsonRepository<>(
+                Path.of("data", "products.json"), Product.class
+        );
+        Repository<Category> categoryRepository = new JsonRepository<>(
+                Path.of("data", "categories.json"), Category.class
+        );
+
+        ProductService productService = new ProductService(productRepository);
+        CategoryService categoryService = new CategoryService(categoryRepository);
+
+        FXMLLoader fxmlLoader = new FXMLLoader(
+                InventoryApplication.class.getResource("view/inventory-view.fxml"));
+        fxmlLoader.setControllerFactory(
+                new ControllerFactory(productService, categoryService)
+        );
+
+        Scene scene = new Scene(fxmlLoader.load(), 900, 600);
+        scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+        stage.setTitle("DSY1102 Inventario");
+        WindowIcon.apply(stage);
+        stage.setScene(scene);
+        stage.show();
+    }
+}
+```
+
+Aquí se decide todo lo que antes estaba disperso: dónde se guardan los datos, qué implementación de `Repository` se usa, cuántas instancias de cada servicio existen y cómo se entregan a los controladores. Para guardar en otro formato, bastaría con cambiar las dos primeras líneas de `start(...)`.
+
+> **Nota:** para aplicar estos cambios en tu proyecto, te recomendamos este orden: (1) crear `Repository` y `JsonRepository` y eliminar los dos repositorios anteriores, (2) modificar los servicios, (3) modificar los tres controladores, (4) crear `ControllerFactory` y (5) modificar `InventoryApplication`. El proyecto no compilará hasta completar todos los cambios, porque las clases dependen unas de otras.
+
+#### Probar con un repositorio falso
+
+La gran ventaja práctica de este diseño aparece al escribir pruebas. Como `ProductService` depende de la interfaz `Repository<Product>`, en una prueba podemos entregarle una implementación falsa que guarda los datos en memoria:
+
+```java
+package cl.duoc.inventory.service;
+
+import cl.duoc.inventory.model.Product;
+import cl.duoc.inventory.repository.Repository;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ProductServiceTest {
+
+    private static class InMemoryRepository implements Repository<Product> {
+        private List<Product> stored = new ArrayList<>();
+        private int saves = 0;
+
+        @Override
+        public boolean exists() {
+            return true;
+        }
+
+        @Override
+        public List<Product> findAll() {
+            return new ArrayList<>(stored);
+        }
+
+        @Override
+        public void save(List<Product> items) {
+            stored = new ArrayList<>(items);
+            saves++;
+        }
+    }
+
+    @Test
+    void addProductSavesItInTheRepository() {
+        InMemoryRepository repository = new InMemoryRepository();
+        ProductService service = new ProductService(repository);
+
+        service.addProduct(new Product("Teclado", "USB", "cat-1", 45990.0, 15));
+
+        assertEquals(1, repository.stored.size());
+        assertEquals(1, repository.saves);
+    }
+
+    @Test
+    void isCategoryInUseDetectsProductsOfThatCategory() {
+        ProductService service = new ProductService(new InMemoryRepository());
+        service.addProduct(new Product("Teclado", "USB", "cat-1", 45990.0, 15));
+
+        assertTrue(service.isCategoryInUse("cat-1"));
+        assertFalse(service.isCategoryInUse("cat-2"));
+    }
+}
+```
+
+Veamos qué ocurre:
+
+- **`InMemoryRepository`:** implementa el mismo contrato que `JsonRepository`, pero guarda la lista en un campo y cuenta cuántas veces se guardó. No toca el disco.
+- **Cada prueba** crea su propio repositorio y su propio servicio, así que no comparten estado. Con un Singleton, esto no sería posible.
+- **`assertEquals` y `assertTrue`:** verifican que, al agregar un producto, el servicio lo haya guardado en el repositorio y que `isCategoryInUse` distinga las categorías.
+
+> **Nota:** para que `.\mvnw.cmd test` ejecute pruebas escritas con JUnit 5, agrega el siguiente plugin en la sección `<build><plugins>` de tu `pom.xml`. Con la versión de Surefire que trae Maven por defecto, el resultado sería `Tests run: 0` y las pruebas no se ejecutarían:
+>
+> ```xml
+> <plugin>
+>     <groupId>org.apache.maven.plugins</groupId>
+>     <artifactId>maven-surefire-plugin</artifactId>
+>     <version>3.2.5</version>
+> </plugin>
+> ```
+
+### Antes y después
+
+| Aspecto | Hoy (Singleton) | Con Pure DI y repositorio genérico |
+| :--- | :--- | :--- |
+| Obtener un servicio | `ProductService.getInstance()` en cualquier parte | Se recibe por el constructor |
+| Repositorio del servicio | `new ProductRepository()` dentro de la clase | Una interfaz `Repository<Product>` recibida |
+| Repositorios | Dos clases casi idénticas | Una sola clase `JsonRepository<T>` |
+| Dependencias de una clase | Escondidas en el código | Visibles en el constructor |
+| Pruebas | Usan los archivos reales | Usan un repositorio falso en memoria |
+| Dónde se conecta todo | Disperso en varias clases | En `InventoryApplication` |
+| Código adicional | Ninguno | `Repository`, `ControllerFactory` y la raíz de composición |
+
+La última fila muestra el costo: hay un poco más de código de arranque. Por eso en esta guía empezamos con Singletons, que son más simples, y reservamos DI para cuando el proyecto necesita pruebas o crece. Es una decisión de diseño, no una regla: la inyección de dependencias paga su costo cuando el código debe ser fácil de probar y de cambiar.
 
 ---
 
