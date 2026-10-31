@@ -1226,6 +1226,178 @@ public class InventoryController {
 
 Ahora ya puedes ejecutar la aplicación con `.\mvnw.cmd clean javafx:run`. Podrás ver los dos productos de ejemplo, crear nuevos con el botón **Nuevo producto**, y editar o eliminar uno existente haciendo doble clic sobre su fila.
 
+### 12. Aplicando estilo con `BootstrapFX`
+
+Ahora que nuestra aplicación funciona, vamos a darle un poco de estilo. Para ello, vamos a incluir la dependencia a `BootstrapFX`. Copia y pega el siguiente código en la sección `dependencies` del archivo `pom.xml`: 
+
+```xml
+<dependency>
+    <groupId>org.kordamp.bootstrapfx</groupId>
+    <artifactId>bootstrapfx-core</artifactId>
+    <version>0.4.0</version>
+</dependency>
+```
+
+Luego, recarga el proyecto Maven (en IntelliJ, con el ícono que aparece en la esquina del editor) para que se descargue la biblioteca.
+
+[BootstrapFX](https://github.com/kordamp/bootstrapfx) es una biblioteca que lleva a JavaFX las clases de estilo del popular framework web Bootstrap. En lugar de escribir CSS para cada botón, le asignamos clases ya definidas, como `btn` o `btn-primary`. Así conseguimos una apariencia consistente con muy poco código, y reservamos nuestro propio CSS para los detalles propios de la aplicación.
+
+#### Declarar el módulo
+
+Como nuestro proyecto es modular, también debemos indicar que usaremos la nueva biblioteca. Agrega la siguiente línea en `src/main/java/module-info.java`, junto a los otros `requires`:
+
+```java
+requires org.kordamp.bootstrapfx.core;
+```
+
+Sin ella, el compilador no encontraría las clases de BootstrapFX, aunque la dependencia esté en el `pom.xml`: Maven descarga la biblioteca, pero es `module-info.java` quien autoriza su uso dentro del módulo.
+
+#### Cargar la hoja de estilos de BootstrapFX
+
+Los estilos se aplican a una `Scene`, que es la que contiene los nodos. Modifica el método `start(...)` de `InventoryApplication` para agregar la hoja de estilos de BootstrapFX, justo después de crear la escena. También necesitas la importación `org.kordamp.bootstrapfx.BootstrapFX`:
+
+```java
+Scene scene = new Scene(fxmlLoader.load(), 900, 600);
+scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+```
+
+`getStylesheets()` retorna la lista de hojas de estilo de la escena, y `BootstrapFX.bootstrapFXStylesheet()` entrega la ubicación del archivo CSS incluido dentro de la biblioteca. Desde este momento, todos los nodos de la escena pueden usar sus clases.
+
+Nuestro formulario de productos se abre en un `Stage` con su propia `Scene`, por lo que **no hereda** los estilos de la ventana principal. Hay que repetir el mismo paso en el método `openProductView(...)` de `InventoryController` (con la misma importación), reemplazando la línea `stage.setScene(new Scene(root));`:
+
+```java
+Scene scene = new Scene(root);
+scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
+stage.setScene(scene);
+```
+
+#### Crear nuestra hoja de estilos
+
+BootstrapFX resuelve gran parte del diseño, pero siempre habrá detalles propios: tamaños de letra, colores del encabezado o de la fila seleccionada. Para eso crearemos un archivo `styles.css` en la carpeta `css` que preparamos en el paso 2, es decir, en `src/main/resources/cl/duoc/inventory/css/`:
+
+```css
+/*
+ * Estilos propios de la aplicación.
+ * Se cargan después de BootstrapFX, por lo que pueden complementarlo
+ * o sobrescribir alguna de sus reglas.
+ */
+
+/* Encabezados de las vistas */
+.page-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #212529;
+}
+
+.page-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #6c757d;
+}
+
+/* Etiquetas del formulario */
+.form-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #495057;
+}
+
+/* Tabla de productos */
+.table-view {
+    -fx-font-size: 13px;
+}
+
+.table-view .column-header .label {
+    -fx-font-weight: bold;
+}
+
+.table-row-cell:filled:selected {
+    -fx-background-color: #0d6efd;
+}
+
+.table-row-cell:filled:selected .table-cell {
+    -fx-text-fill: white;
+}
+```
+
+El CSS de JavaFX se parece al CSS de la web, con dos diferencias importantes: las propiedades llevan el prefijo `-fx-` (por ejemplo, `-fx-font-size`) y los selectores se basan en las clases propias de cada control.
+
+- **`.page-title`, `.page-subtitle` y `.form-label`:** son clases que **inventamos nosotros**. El punto indica que son clases de estilo, y luego las asignaremos a los nodos que queramos.
+- **`.table-view`, `.column-header` y `.table-row-cell`:** son clases que JavaFX ya asigna a las partes de una `TableView`. Un selector con espacio, como `.table-view .column-header .label`, significa "las etiquetas dentro de los encabezados de columna de una tabla".
+- **`:filled:selected`:** son *pseudoclases*, que representan un estado. En este caso, una fila que contiene datos (`filled`) y está seleccionada (`selected`). El filtro `filled` evita pintar las filas vacías que la tabla dibuja para completar su altura.
+
+#### Asignar los estilos a las vistas
+
+Falta conectar todo en los archivos FXML. Primero, cada vista debe cargar nuestra hoja de estilos. Agrega la importación `java.net.URL` junto a las demás y la sección `stylesheets` dentro de `BorderPane`, tanto en `inventory-view.fxml` como en `product-view.fxml`:
+
+```xml
+<?import java.net.URL?>
+<!-- ...resto de las importaciones... -->
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            xmlns="http://javafx.com/javafx"
+            fx:controller="..."
+            prefHeight="..." prefWidth="...">
+    <stylesheets>
+        <URL value="@../css/styles.css"/>
+    </stylesheets>
+    <!-- ...contenido de la vista... -->
+</BorderPane>
+```
+
+El símbolo `@` indica que la ruta es **relativa al archivo FXML**. Como las vistas están en `view/` y el CSS en `css/`, usamos `../` para subir una carpeta. Gracias al orden de prioridad de JavaFX, las hojas de estilo declaradas en un contenedor tienen más prioridad que las de la `Scene`, por lo que nuestras reglas pueden sobrescribir las de BootstrapFX.
+
+Luego, asignamos las clases de estilo a los controles con el atributo `styleClass`. Si son varias, se separan con comas. En `inventory-view.fxml`, modifica el título y el botón de la fila superior:
+
+```xml
+<Label text="Productos registrados"
+       styleClass="page-title"/>
+<Region HBox.hgrow="ALWAYS"/>
+<Button text="Nuevo producto"
+        styleClass="btn, btn-primary"
+        onAction="#handleNewProductClick"/>
+```
+
+Aquí `btn` es la clase base de BootstrapFX para los botones, y `btn-primary` les da el color azul de acción principal. Ambas se combinan.
+
+En `product-view.fxml`, modifica los títulos de la parte superior:
+
+```xml
+<Label fx:id="lblTitle"
+       text="Nuevo producto"
+       styleClass="page-title"/>
+<Label text="Ingresa la información del producto"
+       styleClass="page-subtitle"/>
+```
+
+Agrega `styleClass="form-label"` a cada una de las cinco etiquetas del formulario (`Nombre:`, `Descripción:`, `Categoría:`, `Precio:` y `Cantidad:`), por ejemplo:
+
+```xml
+<Label text="Nombre:"
+       styleClass="form-label"
+       GridPane.rowIndex="0"
+       GridPane.columnIndex="0"/>
+```
+
+Por último, modifica los botones de la parte inferior:
+
+```xml
+<Button fx:id="btnDelete"
+        text="Eliminar"
+        styleClass="btn, btn-danger"
+        onAction="#handleDeleteClick"/>
+<Region HBox.hgrow="ALWAYS"/>
+<Button text="Cancelar"
+        styleClass="btn, btn-default"
+        onAction="#handleCancelClick"/>
+<Button text="Guardar"
+        styleClass="btn, btn-primary"
+        onAction="#handleSaveClick"/>
+```
+
+Los colores comunican el significado de cada acción: `btn-danger` (rojo) para eliminar, `btn-default` (neutro) para cancelar y `btn-primary` (azul) para guardar. BootstrapFX incluye otras variantes, como `btn-success`, `btn-warning` e `btn-info`, y puedes probarlas cambiando el nombre de la clase.
+
+> **Tip pedagógico:** la clase `btn` por sí sola ya cambia el aspecto del botón, pero es la segunda clase la que le da color. Prueba quitar una de las dos para ver qué aporta cada una.
+
+Ahora ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. La tabla, los botones y el formulario deberían mostrar el nuevo estilo.
+
 ---
 
 ## Autor

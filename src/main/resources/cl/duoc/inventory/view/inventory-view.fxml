@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.net.URL?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
@@ -7,6 +8,9 @@
             xmlns="http://javafx.com/javafx"
             fx:controller="cl.duoc.inventory.controller.InventoryController"
             prefHeight="600.0" prefWidth="900.0">
+    <stylesheets>
+        <URL value="@../css/styles.css"/>
+    </stylesheets>
     <top>
         <MenuBar>
             <Menu text="Archivo">
@@ -27,9 +31,11 @@
                         bottom="24.0" left="24.0"/>
             </padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
-                <Label text="Productos registrados"/>
+                <Label text="Productos registrados"
+                       styleClass="page-title"/>
                 <Region HBox.hgrow="ALWAYS"/>
                 <Button text="Nuevo producto"
+                        styleClass="btn, btn-primary"
                         onAction="#handleNewProductClick"/>
             </HBox>
             <TableView fx:id="tblProducts"

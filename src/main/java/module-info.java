@@ -1,6 +1,7 @@
 module cl.duoc.inventory {
     requires javafx.controls;
     requires javafx.fxml;
+    requires org.kordamp.bootstrapfx.core;
 
     opens cl.duoc.inventory to javafx.fxml;
     opens cl.duoc.inventory.controller to javafx.fxml;
