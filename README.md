@@ -100,7 +100,7 @@ public class InventoryApplication extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader(
                 InventoryApplication.class.getResource("inventory-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 640, 480);
-        stage.setTitle("Inventario DSY1102");
+        stage.setTitle("DSY1102 Inventario");
         stage.setScene(scene);
         stage.show();
     }
@@ -231,6 +231,411 @@ Puntos a tener en cuenta:
 - El método manejador recibe un objeto de evento (`ActionEvent`, `KeyEvent`, `MouseEvent`, etc.) con el detalle de lo ocurrido. Si no lo necesitas, puedes declarar el método sin parámetros.
 - El método `initialize()` del controlador se ejecuta **una sola vez**, después de que todos los campos `@FXML` fueron inyectados. Es el lugar correcto para cargar datos iniciales y configurar las columnas de una tabla; nunca el constructor, porque allí los controles todavía son `null`.
 - Los eventos más usados son `onAction` (botones y campos de texto), `onMouseClicked`, `onKeyPressed` y los *listeners* de selección (`getSelectionModel().selectedItemProperty().addListener(...)`).
+
+---
+
+## Construcción del proyecto
+
+### 1. Creación del proyecto
+
+Para crear nuestra aplicación vamos a iniciar IntelliJ IDEA, y desde la pantalla de bienvenida vamos a seleccionar **New
+Project**.
+
+Luego, vamos a completar la información de nuestro proyecto:
+
+- **Generators:** `JavaFX`
+- **Name:** `DSY1102 Inventory`
+- **Location:** Selecciona la ubicación donde quieras guardar tu proyecto.
+- **Create Git repository:** Actívalo para iniciar un repositorio Git en blanco (*opcional*).
+- **Language:** `Java`
+- **Build system:** `Maven`
+- **Group:** Identificador único del proyecto. Usualmente, es el dominio de la organización al revés, por ejemplo `cl.duoc`
+- **Artifact:** `inventory`
+
+Para continuar, presionamos **Next**.
+
+En la siguiente ventana podemos seleccionar las dependencias adicionales para nuestro proyecto. Por el momento, no vamos seleccionar nada, y vamos a presionar **Create**.
+
+IntelliJ generará la estructura inicial de nuestro proyecto:
+
+```plaintext
+dsy1102-inventory/
+├── .mvn/                                  # Configuración de Maven Wrapper
+├── src/
+│   └── main/
+│       ├── java/                          # Código fuente Java
+│       │   ├── cl/duoc/inventory/
+│       │   │   ├── HelloApplication.java  # Inicio de la aplicación JavaFX
+│       │   │   ├── HelloController.java   # Controlador de la vista
+│       │   │   └── Launcher.java          # Punto de entrada de la aplicación
+│       │   └── module-info.java           # Declaración del módulo Java
+│       └── resources/                     # Recursos de la aplicación
+│           └── cl/duoc/inventory/
+│               └── hello-view.fxml        # Diseño de la interfaz gráfica
+├── mvnw                                   # Maven Wrapper para Linux/macOS
+├── mvnw.cmd                               # Maven Wrapper para Windows
+└── pom.xml                                # Configuración y dependencias de Maven
+```
+
+> **¿Para qué sirven `mvnw` y `mvnw.cmd`?** Permiten ejecutar las tareas de Maven usando la versión configurada para el proyecto, sin depender de que cada desarrollador tenga instalada globalmente esa misma versión.
+
+Pon especial atención en los archivos contenidos en `src/main/java/` y `src/main/resources/`:
+
+- `HelloApplication.java`: clase principal de la aplicación JavaFX. Inicializa la interfaz gráfica, carga la vista FXML y configura la ventana principal (`Stage`).
+- `HelloController.java`: controla el comportamiento de la vista. Gestiona los eventos de los componentes gráficos, como los clics en botones, y coordina las acciones del usuario.
+- `Launcher.java`: contiene el método `main()` que inicia la aplicación. Se utiliza como punto de entrada, especialmente en proyectos JavaFX modulares.
+- `hello-view.fxml`: define la estructura visual de la interfaz mediante FXML. Permite declarar controles, contenedores, propiedades y la asociación con su controlador sin construir toda la interfaz mediante código Java.
+
+### 2. Organización inicial
+
+En nuestra aplicación no vamos a ocupar todos los archivos generados por IntelliJ, por lo tanto, vamos a hacer unos cambios iniciales:
+
+1. **Renombrar `HelloApplication.java`:** En el explorador de archivos del proyecto, selecciona el archivo `HelloApplication`, hazle clic con el botón derecho y luego, en **Rename**. En el cuadro de diálogo, escribe `InventoryApplication` y presiona **Refactor**.
+2. **Eliminar `HelloController.java` y `hello-view.fxml`:** Selecciona independientemente cada archivo, y presiona el botón *Suprimir* o haz clic con el botón derecho y, luego, en **Delete**. En el siguiente cuadro de diálogo, presiona **Refactor**. Como estos archivos aún tienen dependencias en el proyecto, IntelliJ te va a preguntar si estás seguro, mostrando los conflictos existentes; como no los vamos a usar, presiona **Refactor anyway**.
+
+También vamos a crear los *packages* necesarios para implementar el patrón **MVC**. Primero, en la ruta `src/main/java/cl/duoc/inventory/` haremos clic con el botón derecho, seleccionaremos **New** → **New Package** y en el cuadro de diálogo, le daremos el nombre `cl.duoc.inventory.controller`. Vamos a repetir la acción para crear dos *packages* adicionales, con los nombres `cl.duoc.inventory.model`, `cl.duoc.inventory.repository` y `cl.duoc.inventory.service`.
+
+Como segundo punto, vamos a hacer clic derecho en la ruta `src/main/resources/cl/duoc/inventory/`, seleccionaremos **New** → **New Directory**, y crearemos las carpetas `view` y `css`.
+
+Nuestro proyecto quedará con la siguiente estructura:
+
+```plaintext
+dsy1102-inventory/
+├── .mvn/
+├── src/
+│   └── main/
+│       ├── java/ 
+│       │   ├── cl/duoc/inventory/
+│       │   │   ├── controller/                # Controladores de las vistas
+│       │   │   ├── model/                     # Modelos y datos de la aplicación
+│       │   │   ├── repository/                # Repositorio de la aplicación
+│       │   │   ├── service/                   # Servicios de la aplicación
+│       │   │   ├── InventoryApplication.java  # Inicio de la aplicación JavaFX
+│       │   │   └── Launcher.java              # Punto de entrada de la aplicación
+│       │   └── module-info.java
+│       └── resources/
+│           └── cl/duoc/inventory/
+│               ├── css/                       # Hojas de estilo CSS
+│               └── view/                      # Vistas definidas en FXM
+├── mvnw
+├── mvnw.cmd
+└── pom.xml
+```
+
+### 3. Modificar `src/main/java/module-info.java`
+
+El `module-info.java` es **el archivo descriptor de un módulo en Java** (introducido en Java 9) que se ubica en la raíz del código fuente para definir de forma explícita la estructura y los límites de un componente. Sirve para **declarar qué dependencias necesita el módulo para funcionar y qué paquetes propios expone hacia el exterior**, permitiendo un control estricto sobre la visibilidad del código, mejorando la seguridad, optimizando el rendimiento de la máquina virtual (JVM) al cargar solo lo necesario y evitando los conflictos tradicionales del *classpath*.
+
+Para que JavaFX pueda utilizar las futuras clases que tendremos en `cl.duoc.inventory.controller` y `cl.duoc.inventory.model`, debemos incluirlos en el archivo `src/main/java/module-info.java`:
+
+```java
+module cl.duoc.inventory {
+    requires javafx.controls;
+    requires javafx.fxml;
+
+    opens cl.duoc.inventory to javafx.fxml;
+    opens cl.duoc.inventory.controller to javafx.fxml;
+    opens cl.duoc.inventory.model to javafx.base;
+
+    exports cl.duoc.inventory;
+}
+```
+
+Veamos qué declara cada línea:
+
+- `requires javafx.controls;` y `requires javafx.fxml;` indican las **dependencias** del módulo. La primera da acceso a los controles (`Button`, `Label`, `TableView`, etc.) y la segunda a `FXMLLoader`. Si falta alguna, el compilador no reconocerá las clases de ese paquete.
+- `opens cl.duoc.inventory.controller to javafx.fxml;` permite que `FXMLLoader` use *reflexión* sobre nuestros controladores: crear la instancia e inyectar los campos anotados con `@FXML`, incluso si son `private`. La línea `opens cl.duoc.inventory to javafx.fxml;` cumple el mismo rol para el paquete principal.
+- `opens cl.duoc.inventory.model to javafx.base;` permite que JavaFX lea las propiedades de `Product` también mediante reflexión. Lo usaremos en el paso 6, cuando la tabla necesite obtener los valores de cada producto.
+- `exports cl.duoc.inventory;` hace visible el paquete que contiene a `InventoryApplication`, para que JavaFX pueda instanciar nuestra aplicación.
+
+> **¿`exports` u `opens`?** `exports` permite usar las clases públicas de un paquete desde otros módulos. `opens` habilita, además, la reflexión en tiempo de ejecución sobre todos sus miembros, incluidos los privados. La parte `to javafx.fxml` restringe ese acceso a un módulo específico, en lugar de abrirlo a todos.
+
+> **Tip pedagógico:** si olvidas un `opens`, el proyecto compila sin problemas pero falla al ejecutarse, con un error que indica que el módulo no abre el paquete a `javafx.fxml` o `javafx.base`. Si te ocurre, revisa primero este archivo.
+
+### 4. Creación del modelo `Product`
+
+Para poder usar nuestra aplicación, necesitamos decirle qué información va a trabajar. Para ello, vamos a crear una clase dentro de `src/main/java/cl/duoc/inventory/model/` llamada `Product`.
+
+Esta clase va a tener el siguiente código:
+
+```java
+package cl.duoc.inventory.model;
+
+import java.util.UUID;
+
+public class Product {
+    private final String id;
+    private String name;
+    private String description;
+    private String category;
+    private double price;
+    private int quantity;
+
+    public Product(String name, String description, String category, double price, int quantity) {
+        this.id = UUID.randomUUID().toString();
+        this.name = name;
+        this.description = description;
+        this.category = category;
+        this.price = price;
+        this.quantity = quantity;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+}
+```
+
+Presta especial atención a la función `UUID.randomUUID().toString()`. Esta retornará un identificador único basado en [UUID](https://es.wikipedia.org/wiki/Identificador_%C3%BAnico_universal) para nuestro producto.
+
+Esta clase aplica varias ideas de la programación orientada a objetos:
+
+- **Encapsulamiento:** todos los atributos son `private` y solo se leen o modifican a través de *getters* y *setters*. Así, la clase controla cómo cambia su estado y, más adelante, podremos agregar validaciones dentro de los *setters* sin tocar el resto de la aplicación.
+- **Identificador inmutable:** `id` es `final`, se asigna una sola vez en el constructor y no tiene *setter*, porque el identificador de un producto no debería cambiar durante su vida. El constructor tampoco lo recibe como parámetro: la propia clase lo genera, de modo que nunca dos productos compartirán el mismo `id` ni necesitamos llevar un contador.
+- **Nombres de los *getters*:** siguen la convención JavaBeans (`getName()`, `getPrice()`, etc.). No es solo una cuestión de estilo: en el paso 6, la tabla usará esos nombres para leer los datos de cada producto.
+
+> **Nota:** usamos `double` para el precio por simplicidad. En un sistema real que maneje dinero es preferible `BigDecimal`, que evita los errores de redondeo propios de los números de punto flotante.
+
+### 5. Creación de la escena `inventory-view.fxml`
+
+Vamos a crear nuestra primera escena, llamada `inventory-view.fxml` en la ruta `src/main/resources/cl/duoc/inventory/view/`.
+
+Una vez creado el archivo, veremos algo como esto:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="CONTROLLER_NAME"
+            prefHeight="400.0" prefWidth="600.0">
+
+</AnchorPane>
+```
+
+Este código es la plantilla base y vacía de una interfaz gráfica escrita en FXML, el lenguaje basado en XML que utiliza JavaFX para definir vistas (UI) de forma separada de la lógica del negocio. Observa el atributo `fx:controller`: por ahora tiene un marcador (`CONTROLLER_NAME`) que reemplazaremos por la clase de nuestro controlador, el cual crearemos en el paso 6.
+
+Reemplacemos toda la vista con el siguiente código:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            xmlns="http://javafx.com/javafx"
+            fx:controller="cl.duoc.inventory.controller.InventoryController"
+            prefHeight="600.0" prefWidth="900.0">
+    <top>
+        <MenuBar>
+            <Menu text="Archivo">
+                <Menu text="Productos">
+                    <MenuItem text="Nuevo"
+                              onAction="#handleNewProductClick"/>
+                </Menu>
+                <MenuItem text="Categorías"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Salir"/>
+            </Menu>
+        </MenuBar>
+    </top>
+    <center>
+        <VBox spacing="15.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="24.0" left="24.0"/>
+            </padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label text="Productos registrados"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="Nuevo producto"
+                        onAction="#handleNewProductClick"/>
+            </HBox>
+            <TableView fx:id="tblProducts"
+                       VBox.vgrow="ALWAYS">
+                <columnResizePolicy>
+                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                </columnResizePolicy>
+                <columns>
+                    <TableColumn fx:id="colName"
+                                 text="Nombre"
+                                 prefWidth="220.0"/>
+                    <TableColumn fx:id="colCategory"
+                                 text="Categoría"
+                                 prefWidth="160.0"/>
+                    <TableColumn fx:id="colPrice"
+                                 text="Precio"
+                                 prefWidth="120.0"/>
+                    <TableColumn fx:id="colQuantity"
+                                 text="Cantidad"
+                                 prefWidth="100.0"/>
+                </columns>
+                <placeholder>
+                    <Label text="No hay productos registrados"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+</BorderPane>
+```
+
+Recorramos la vista de arriba hacia abajo:
+
+- **`<?import ...?>`:** equivalen a los `import` de Java. Sin ellos, FXML no sabría a qué clase corresponde cada etiqueta (`BorderPane`, `Label`, `Insets`, etc.).
+- **`BorderPane`:** es el contenedor raíz y divide la ventana en zonas. Usamos `top` para la barra de menú y `center` para el contenido, que ocupa todo el espacio restante y se ajusta al cambiar el tamaño de la ventana. Su atributo `fx:controller` ahora apunta a la clase `InventoryController`, y `prefWidth` y `prefHeight` definen el tamaño preferido de la vista.
+- **`MenuBar`:** cada `Menu` es un menú desplegable que puede contener elementos (`MenuItem`), submenús (como "Productos") y separadores (`SeparatorMenuItem`). "Categorías" y "Salir" todavía no tienen acción: se la asignaremos en los siguientes pasos.
+- **`VBox` con `padding`:** apila sus hijos en una columna, separados por `spacing`. `Insets` define el margen interior en el orden arriba, derecha, abajo e izquierda; dejamos el superior más pequeño porque la barra de menú ya aporta espacio visual.
+- **`HBox` y `Region`:** forman la fila del título. `Region` es un nodo vacío e invisible; con `HBox.hgrow="ALWAYS"` se estira para ocupar todo el espacio libre, lo que empuja el botón hacia el extremo derecho.
+- **`onAction="#handleNewProductClick"`:** el elemento de menú "Nuevo" y el botón "Nuevo producto" ejecutan el mismo método del controlador. Un mismo manejador puede atender a varios controles.
+- **`TableView`:** su `fx:id="tblProducts"` nos permitirá inyectarla en el controlador. `CONSTRAINED_RESIZE_POLICY` reparte el ancho disponible entre las columnas, de modo que siempre se ajusten a la tabla sin barra de desplazamiento horizontal. Cada `TableColumn` también tiene su `fx:id`, y el contenido de `placeholder` es lo que se muestra mientras la tabla no tiene filas.
+
+> **Propiedades adjuntas:** `HBox.hgrow` y `VBox.vgrow` usan la notación `Clase.propiedad`. Se llaman *propiedades adjuntas* (*attached properties*) porque las define el contenedor padre y se aplican al hijo. Aquí, `VBox.vgrow="ALWAYS"` le indica a la tabla que use todo el alto disponible dentro del `VBox`.
+
+Con nuestra vista creada, debemos modificar el archivo `src/main/java/cl/duoc/inventory/InventoryApplication` para corregir la escena que se carga en la función `FXMLLoader(...)`. También, vamos a cambiar el título al `Stage` por `"DSY1102 Inventario"`, y el tamaño de la ventana principal al momento de crear la escena con `new Scene(...)`:
+
+```java
+package cl.duoc.inventory;
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+
+import java.io.IOException;
+
+public class InventoryApplication extends Application {
+    @Override
+    public void start(Stage stage) throws IOException {
+        FXMLLoader fxmlLoader = new FXMLLoader(
+                InventoryApplication.class.getResource("view/inventory-view.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 900, 600);
+        stage.setTitle("DSY1102 Inventario");
+        stage.setScene(scene);
+        stage.show();
+    }
+}
+```
+
+Cada línea cumple un rol específico:
+
+- `getResource("view/inventory-view.fxml")` busca el archivo con una ruta **relativa al paquete de la clase** (`cl/duoc/inventory/`), por lo que apunta a `resources/cl/duoc/inventory/view/inventory-view.fxml`. Si la ruta tiene un error, `getResource` no encuentra el archivo y la aplicación falla al iniciar (el mensaje típico es `Location is not set`).
+- `fxmlLoader.load()` lee el FXML, construye el árbol de nodos, crea el controlador indicado en `fx:controller` y le inyecta los campos `@FXML`. Retorna el nodo raíz de la vista (nuestro `BorderPane`), que pasa a ser la raíz de la `Scene`.
+- `new Scene(..., 900, 600)` define el ancho y el alto de la escena en píxeles, y coinciden con el tamaño preferido declarado en la vista.
+- `setTitle(...)`, `setScene(...)` y `show()` configuran el `Stage`: le ponen título a la ventana, le asignan la escena y la hacen visible.
+- `throws IOException` es necesario porque `load()` puede fallar al leer el archivo FXML.
+
+### 6. Creación del controlador `InventoryController`
+
+Para que nuestra aplicación pueda funcionar, necesitamos crear nuestro controlador. Para ello, crearemos la clase `InventoryController` dentro de `src/main/java/cl/duoc/inventory/controller/`, y le añadiremos el siguiente código:
+
+```java
+package cl.duoc.inventory.controller;
+
+import cl.duoc.inventory.model.Product;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+
+public class InventoryController {
+    private final ObservableList<Product> products = FXCollections.observableArrayList(
+            new Product(
+                    "Teclado mecánico",
+                    "Teclado USB", "Periféricos", 45990.0, 15
+            ),
+            new Product(
+                    "Monitor 24 pulgadas",
+                    "Monitor Full HD", "Electrónica", 129990.0, 8
+            )
+    );
+    @FXML
+    private TableView<Product> tblProducts;
+    @FXML
+    private TableColumn<Product, String> colName;
+    @FXML
+    private TableColumn<Product, String> colCategory;
+    @FXML
+    private TableColumn<Product, Double> colPrice;
+    @FXML
+    private TableColumn<Product, Integer> colQuantity;
+
+    @FXML
+    protected void initialize() {
+        colName.setCellValueFactory(new PropertyValueFactory<>("name"));
+        colCategory.setCellValueFactory(new PropertyValueFactory<>("category"));
+        colPrice.setCellValueFactory(new PropertyValueFactory<>("price"));
+        colQuantity.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+
+        tblProducts.setItems(products);
+    }
+
+    @FXML
+    protected void handleNewProductClick() {
+        // Próximo paso: abrir el formulario de producto.
+    }
+}
+```
+
+Revisemos el controlador por partes:
+
+- **`products`:** es una `ObservableList<Product>` que contiene dos productos de ejemplo, para que la tabla muestre algo desde el primer momento. Más adelante la reemplazaremos por datos reales. Es `final` porque la referencia a la lista no cambia, aunque su contenido sí.
+- **Campos `@FXML`:** sus nombres deben coincidir **exactamente** con los `fx:id` de la vista (`tblProducts`, `colName`, `colCategory`, etc.). Si un nombre no coincide, el campo queda en `null` y la aplicación falla al usarlo.
+- **Tipos genéricos:** `TableView<Product>` indica que cada fila es un `Product`. En `TableColumn<Product, String>`, el primer tipo es el de la fila y el segundo el del valor que muestra la celda. Por eso `colPrice` usa `Double` y `colQuantity` usa `Integer`: los genéricos no admiten tipos primitivos, así que se usan sus clases envoltorio.
+- **`initialize()`:** JavaFX lo ejecuta automáticamente una vez que los campos `@FXML` fueron inyectados, así que aquí ya podemos usar la tabla y las columnas sin riesgo de que sean `null`.
+- **`setCellValueFactory(new PropertyValueFactory<>("name"))`:** le indica a la columna cómo obtener el valor de cada celda. Dado el texto `"name"`, busca primero un método `nameProperty()` y, si no existe, usa `getName()` de `Product`. Por eso importaban los nombres de los *getters* en el paso 4, y también el `opens ... to javafx.base` del paso 3.
+- **`tblProducts.setItems(products)`:** conecta la tabla con la lista. Como la lista es observable, cualquier producto que agreguemos o quitemos después se reflejará en pantalla sin código adicional.
+- **`handleNewProductClick()`:** es el método que enlazamos desde el FXML con `#handleNewProductClick`. Por ahora está vacío, y lo completaremos en el siguiente paso.
+
+Con esto ya puedes ejecutar la aplicación con `.\mvnw.cmd clean javafx:run` y ver la ventana con los dos productos de ejemplo.
 
 ---
 

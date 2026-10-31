@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            xmlns="http://javafx.com/javafx"
+            fx:controller="cl.duoc.inventory.controller.InventoryController"
+            prefHeight="600.0" prefWidth="900.0">
+    <top>
+        <MenuBar>
+            <Menu text="Archivo">
+                <Menu text="Productos">
+                    <MenuItem text="Nuevo"
+                              onAction="#handleNewProductClick"/>
+                </Menu>
+                <MenuItem text="Categorías"/>
+                <SeparatorMenuItem/>
+                <MenuItem text="Salir"/>
+            </Menu>
+        </MenuBar>
+    </top>
+    <center>
+        <VBox spacing="15.0">
+            <padding>
+                <Insets top="10.0" right="24.0"
+                        bottom="24.0" left="24.0"/>
+            </padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label text="Productos registrados"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="Nuevo producto"
+                        onAction="#handleNewProductClick"/>
+            </HBox>
+            <TableView fx:id="tblProducts"
+                       VBox.vgrow="ALWAYS">
+                <columnResizePolicy>
+                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                </columnResizePolicy>
+                <columns>
+                    <TableColumn fx:id="colName"
+                                 text="Nombre"
+                                 prefWidth="220.0"/>
+                    <TableColumn fx:id="colCategory"
+                                 text="Categoría"
+                                 prefWidth="160.0"/>
+                    <TableColumn fx:id="colPrice"
+                                 text="Precio"
+                                 prefWidth="120.0"/>
+                    <TableColumn fx:id="colQuantity"
+                                 text="Cantidad"
+                                 prefWidth="100.0"/>
+                </columns>
+                <placeholder>
+                    <Label text="No hay productos registrados"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+</BorderPane>
