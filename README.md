@@ -1,6 +1,6 @@
 # Guía de Laboratorio: Aplicación `DSY1102 Inventory`
 
-Proyecto pedagógico de referencia para la asignatura **DSY1102 - Programación Orientada al Objeto** (Duoc UC). Este repositorio sirve como punto de partida práctico para aprender a construir aplicaciones de escritorio en Java utilizando **JavaFX** y el patrón arquitectónico **Modelo-Vista-Controlador (MVC)**.
+Aplicación de escritorio para la gestión de inventario, desarrollada con **Java** y **JavaFX**. Es un proyecto educativo de referencia para la asignatura **DSY1102 - Programación Orientada al Objeto** (Duoc UC), que sirve como punto de partida práctico para explorar el desarrollo de interfaces gráficas con **FXML**, la arquitectura **Modelo-Vista-Controlador (MVC)**, el manejo de eventos, las operaciones **CRUD** y la persistencia de datos en archivos **JSON** mediante **Gson**.
 
 ---
 
