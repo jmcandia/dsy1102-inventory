@@ -1289,7 +1289,7 @@ public class InventoryController {
 
 ### 12. Aplicar estilos con `BootstrapFX` y CSS propio
 
-Ahora que nuestra aplicación funciona, vamos a darle estilo con dos herramientas: **BootstrapFX**, que aporta clases de estilo listas para usar, y nuestra propia hoja de estilos CSS. Comenzamos incluyendo la dependencia de `BootstrapFX`. Copia y pega el siguiente código en la sección `dependencies` del archivo `pom.xml`: 
+Ahora que nuestra aplicación funciona, vamos a darle estilo con dos herramientas: **BootstrapFX**, que aporta clases de estilo listas para usar, y nuestra propia hoja de estilos CSS. Comenzamos incluyendo la dependencia de `BootstrapFX`. Copia y pega el siguiente código en la sección `dependencies` del archivo `pom.xml`:
 
 ```xml
 <dependency>
