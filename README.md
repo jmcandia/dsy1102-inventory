@@ -38,6 +38,7 @@ Aplicación de escritorio para la gestión de inventario, desarrollada con **Jav
   - [15. Relacionar Product con Category](#15-relacionar-product-con-category)
   - [16. Gestionar las categorías desde la aplicación](#16-gestionar-las-categorías-desde-la-aplicación)
   - [17. Cambiar el ícono de las ventanas (opcional)](#17-cambiar-el-ícono-de-las-ventanas-opcional)
+  - [18. Revisar la estructura final del proyecto](#18-revisar-la-estructura-final-del-proyecto)
 - [Conceptos Avanzados](#conceptos-avanzados)
   - [Inyección de dependencias](#inyección-de-dependencias)
   - [Repositorio genérico](#repositorio-genérico)
@@ -2418,6 +2419,72 @@ Cada `Stage` tiene su propia lista de íconos y no hereda la de la ventana princ
 **Verificación:** Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. Deberías ver tu imagen en la barra de título y en la barra de tareas, y también en las ventanas de producto y de categorías. Si sigues viendo el ícono de Java, revisa que el archivo esté en la carpeta `images` y que su nombre coincida con `ICON_PATH`. Usa siempre `clean` al ejecutar, para que Maven copie los recursos nuevos.
 
 > **Tip pedagógico:** prueba con distintas imágenes. También puedes agregar dos versiones de tamaños diferentes con `stage.getIcons().addAll(...)` y ver cuál elige JavaFX en cada lugar.
+
+### 18. Revisar la estructura final del proyecto
+
+Con los 17 pasos completados, el proyecto contiene todos los archivos de la aplicación. Revisar su estructura final ayuda a ver cómo se organiza cada capa del patrón MVC y a comprobar que no falte ningún archivo. Junto a cada uno indicamos el paso en que lo creamos o lo modificamos:
+
+```text
+dsy1102-inventory/
+├── .mvn/                                           # Maven Wrapper (paso 1)
+├── data/                                           # Datos de la aplicación (se crea al ejecutarla)
+│   ├── categories.json                             # Paso 14
+│   └── products.json                               # Paso 13
+├── src/
+│   └── main/
+│       ├── java/
+│       │   ├── cl/duoc/inventory/
+│       │   │   ├── controller/
+│       │   │   │   ├── CategoryController.java     # Paso 16
+│       │   │   │   ├── InventoryController.java    # Paso 6
+│       │   │   │   └── ProductController.java      # Paso 10
+│       │   │   ├── model/
+│       │   │   │   ├── Category.java               # Paso 14
+│       │   │   │   └── Product.java                # Paso 4
+│       │   │   ├── repository/
+│       │   │   │   ├── CategoryRepository.java     # Paso 14
+│       │   │   │   └── ProductRepository.java      # Paso 13
+│       │   │   ├── service/
+│       │   │   │   ├── CategoryService.java        # Paso 14
+│       │   │   │   └── ProductService.java         # Paso 7
+│       │   │   ├── util/
+│       │   │   │   └── WindowIcon.java             # Paso 17
+│       │   │   ├── InventoryApplication.java       # Pasos 1 y 2
+│       │   │   └── Launcher.java                   # Paso 1
+│       │   └── module-info.java                    # Pasos 1 y 3
+│       └── resources/cl/duoc/inventory/
+│           ├── css/
+│           │   └── styles.css                      # Paso 12
+│           ├── images/
+│           │   └── logo.png                        # Paso 17
+│           └── view/
+│               ├── category-view.fxml              # Paso 16
+│               ├── inventory-view.fxml             # Paso 5
+│               └── product-view.fxml               # Paso 9
+├── target/                                         # Archivos compilados (los genera Maven)
+├── .gitignore                                      # Paso 1 (si creaste el repositorio Git) y paso 13
+├── mvnw                                            # Paso 1
+├── mvnw.cmd                                        # Paso 1
+└── pom.xml                                         # Pasos 1, 12 y 13
+```
+
+Veamos cómo se organiza:
+
+- **Modelo (`model/`):** las entidades `Product` y `Category`, que solo describen datos.
+- **Vista (`resources/.../view/`):** los tres archivos FXML. Junto a ellos, `css/` e `images/` contienen los recursos de apariencia: la hoja de estilos y el ícono de las ventanas.
+- **Controlador (`controller/`):** un controlador por cada vista, que responde a las acciones del usuario.
+- **Servicio (`service/`):** la lógica de negocio y los datos compartidos entre ventanas.
+- **Repositorio (`repository/`):** el acceso a los archivos JSON.
+- **Utilidades (`util/`):** `WindowIcon`, que no pertenece a ninguna capa del patrón porque solo ayuda a configurar las ventanas.
+- **Arranque:** `Launcher` e `InventoryApplication` están en la raíz del paquete. `module-info.java` está un nivel más arriba, en la raíz de `java/`, porque describe el módulo completo.
+- **Maven:** `pom.xml` define las dependencias, y `mvnw`, `mvnw.cmd` y la carpeta `.mvn/` forman el Maven Wrapper.
+- **Archivos generados:** `target/` lo crea Maven al compilar, y `data/` lo crea la aplicación al guardar su primer dato. Ninguno de los dos se sube a Git, porque ambos están en el `.gitignore`.
+
+Además de estos archivos, el repositorio incluye `README.md` y `LICENSE`, que no forman parte de la aplicación.
+
+Si observas las importaciones de cada clase, verás que la dependencia fluye en un solo sentido: los controladores usan servicios, los servicios usan repositorios y todos usan el modelo. Ningún repositorio conoce a un servicio, ni ningún servicio a un controlador. Esa regla es la que mantiene separadas las responsabilidades de cada capa.
+
+**Verificación:** Compara el explorador de archivos de tu IDE con la estructura anterior. Luego, ejecuta la aplicación con `.\mvnw.cmd clean javafx:run` y comprueba que todo funcione: la tabla de productos, el formulario, la gestión de categorías, el guardado de datos al cerrar y volver a abrir la aplicación, y el ícono de las ventanas.
 
 ## Conceptos Avanzados
 
