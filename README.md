@@ -37,6 +37,7 @@ Aplicación de escritorio para la gestión de inventario, desarrollada con **Jav
   - [14. Crear el modelo Category y su servicio](#14-crear-el-modelo-category-y-su-servicio)
   - [15. Relacionar Product con Category](#15-relacionar-product-con-category)
   - [16. Gestionar las categorías desde la aplicación](#16-gestionar-las-categorías-desde-la-aplicación)
+  - [17. Cambiar el ícono de las ventanas (opcional)](#17-cambiar-el-ícono-de-las-ventanas-opcional)
 - [Autor](#autor)
 - [Licencia](#licencia)
 
@@ -2318,6 +2319,99 @@ Es el mismo patrón de `openProductView(...)`, más simple porque no necesita en
 4. Crea un producto con la categoría "Hogar", vuelve a **Categorías**, renómbrala y ciérrala: la tabla de productos debe mostrar el nombre nuevo.
 5. Intenta eliminar "Hogar" mientras tenga productos: deberías ver una advertencia. Elimina una categoría sin productos para comprobar que sí se elimina.
 6. Cierra y vuelve a abrir la aplicación: las categorías deben mantenerse, porque se guardan en `data/categories.json`.
+
+### 17. Cambiar el ícono de las ventanas (opcional)
+
+Por defecto, las ventanas de una aplicación JavaFX muestran el ícono genérico de Java, tanto en la barra de título como en la barra de tareas. Este paso es opcional y te permite reemplazarlo por una imagen propia. El proyecto incluye un ejemplo (`logo.png`), pero puedes usar la imagen que prefieras.
+
+#### Preparar la imagen
+
+Crea la carpeta `images` en la ruta `src/main/resources/cl/duoc/inventory/`, junto a las carpetas `css` y `view` que creamos en el paso 2. Luego, copia allí la imagen que quieras usar como ícono. Para que se vea bien, considera lo siguiente:
+
+- **Formato:** usa PNG, JPG, GIF o BMP. El formato `.ico` no es compatible con JavaFX.
+- **Forma y tamaño:** una imagen cuadrada de al menos 256×256 píxeles. JavaFX la reduce según el lugar donde se muestre, pero no la amplía con buena calidad.
+- **Fondo:** un PNG con fondo transparente se ve mejor, porque el ícono no queda dentro de un recuadro.
+- **Nombre:** en esta guía usaremos `logo.png`. Si tu archivo se llama distinto, cambia el nombre en el código del siguiente apartado.
+
+#### Crear la clase `WindowIcon`
+
+Nuestra aplicación abre tres ventanas: la principal, el formulario de productos y la gestión de categorías. Cada una es un `Stage` independiente y necesita su propio ícono, así que, para no repetir el mismo código tres veces, lo concentramos en una clase de utilidad.
+
+Crea la clase `WindowIcon` en un nuevo paquete `cl.duoc.inventory.util`, en la ruta `src/main/java/cl/duoc/inventory/util/`, con el siguiente código:
+
+```java
+package cl.duoc.inventory.util;
+
+import javafx.scene.image.Image;
+import javafx.stage.Stage;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+public final class WindowIcon {
+    private static final String ICON_PATH =
+            "/cl/duoc/inventory/images/logo.png";
+
+    private WindowIcon() {
+    }
+
+    public static void apply(Stage stage) {
+        try (InputStream stream =
+                     WindowIcon.class.getResourceAsStream(ICON_PATH)) {
+            if (stream != null) {
+                stage.getIcons().add(new Image(stream));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+Veamos cómo funciona:
+
+- **`final` y constructor `private`:** es una clase de utilidad, que solo ofrece métodos estáticos. Al impedir que se creen instancias, dejamos claro que se usa como `WindowIcon.apply(...)`.
+- **`ICON_PATH`:** es la ruta de la imagen dentro de los recursos. Empieza con `/`, por lo que se calcula desde la raíz de los recursos, igual que la ruta de las vistas en el paso 11. Si tu imagen tiene otro nombre, cámbialo aquí.
+- **`getResourceAsStream(...)`:** abre el archivo como un flujo de datos. Si no lo encuentra, retorna `null`; en ese caso el método no hace nada, y la ventana conserva el ícono por defecto en lugar de fallar. Esto es lo que hace que el paso sea opcional.
+- **`try` con recursos:** el flujo declarado entre paréntesis se cierra automáticamente al terminar, incluso si ocurre un error.
+- **`stage.getIcons()`:** es una lista de imágenes. JavaFX elige de ella la que mejor se ajusta a cada lugar donde se muestra el ícono. Con una sola imagen, la escala; si quisieras más nitidez, podrías agregar varias versiones de distintos tamaños.
+
+#### Aplicar el ícono a las ventanas
+
+En `InventoryApplication`, agrega la importación y llama a `WindowIcon.apply(...)` después de asignar el título:
+
+```java
+import cl.duoc.inventory.util.WindowIcon;
+```
+
+```java
+stage.setTitle("DSY1102 Inventario");
+WindowIcon.apply(stage);
+```
+
+En `InventoryController`, agrega la misma importación y aplica el ícono en los dos métodos que abren ventanas. En `openProductView(...)`, después de asignar el título:
+
+```java
+stage.setTitle(
+        product == null ? "Nuevo producto" : "Editar producto"
+);
+WindowIcon.apply(stage);
+```
+
+Y en `openCategoryView()`:
+
+```java
+stage.setTitle("Categorías");
+WindowIcon.apply(stage);
+```
+
+Cada `Stage` tiene su propia lista de íconos y no hereda la de la ventana principal, por eso hay que aplicarlo en las tres.
+
+> **Nota:** los cuadros de diálogo (`Alert`) son ventanas independientes y no se modifican en este paso.
+
+**Verificación:** Ejecuta la aplicación con `.\mvnw.cmd clean javafx:run`. Deberías ver tu imagen en la barra de título y en la barra de tareas, y también en las ventanas de producto y de categorías. Si sigues viendo el ícono de Java, revisa que el archivo esté en la carpeta `images` y que su nombre coincida con `ICON_PATH`. Usa siempre `clean` al ejecutar, para que Maven copie los recursos nuevos.
+
+> **Tip pedagógico:** prueba con distintas imágenes. También puedes agregar dos versiones de tamaños diferentes con `stage.getIcons().addAll(...)` y ver cuál elige JavaFX en cada lugar.
 
 ---
 

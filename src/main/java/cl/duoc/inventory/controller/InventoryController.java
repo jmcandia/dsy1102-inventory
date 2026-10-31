@@ -3,6 +3,7 @@ package cl.duoc.inventory.controller;
 import cl.duoc.inventory.model.Product;
 import cl.duoc.inventory.service.CategoryService;
 import cl.duoc.inventory.service.ProductService;
+import cl.duoc.inventory.util.WindowIcon;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -75,6 +76,7 @@ public class InventoryController {
 
             Stage stage = new Stage();
             stage.setTitle("Categorías");
+            WindowIcon.apply(stage);
             Scene scene = new Scene(root);
             scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
             stage.setScene(scene);
@@ -105,6 +107,7 @@ public class InventoryController {
             stage.setTitle(
                     product == null ? "Nuevo producto" : "Editar producto"
             );
+            WindowIcon.apply(stage);
             Scene scene = new Scene(root);
             scene.getStylesheets().add(BootstrapFX.bootstrapFXStylesheet());
             stage.setScene(scene);
